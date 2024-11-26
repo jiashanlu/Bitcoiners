@@ -1,12 +1,13 @@
+import React from "react";
 import { Box, Flex, Text, Badge, Icon } from "@chakra-ui/react";
 import { FiArrowUp, FiArrowDown } from "react-icons/fi";
 import { ExchangePrice } from "../types/exchange";
 
-interface PriceCardProps {
+export interface PriceCardProps {
   data: ExchangePrice;
 }
 
-export const PriceCard = ({ data }: PriceCardProps) => {
+export const PriceCard = ({ data }: PriceCardProps): JSX.Element => {
   const isPositiveChange = data.change24h >= 0;
 
   return (

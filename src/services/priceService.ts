@@ -1,28 +1,41 @@
 import axios from "axios";
 import { ExchangePrice } from "../types/exchange";
-
-const API_BASE_URL = "https://api.bitcoiners.ae"; // Replace with your actual API
+import { fetchBitOasisPrice } from "./exchanges/bitoasis";
+import { fetchRainPrice } from "./exchanges/rain";
 
 export const priceService = {
   async fetchPrices(): Promise<ExchangePrice[]> {
-    // Temporary mock data until API is ready
-    return [
-      {
-        exchange: "BitOasis",
-        price: 155000,
-        pair: "BTC/AED",
-        lastUpdated: new Date().toISOString(),
-        change24h: 2.5,
-        volume24h: 1500000,
-      },
-      {
-        exchange: "Rain",
-        price: 154800,
-        pair: "BTC/AED",
-        lastUpdated: new Date().toISOString(),
-        change24h: 2.3,
-        volume24h: 1200000,
-      },
-    ];
+    try {
+      // Fetch prices in parallel
+      const results = await Promise.allSettled([
+        fetchBitOasisPrice(),
+        fetchRainPrice(),
+      ]);
+
+      // Log any failures for debugging
+      results.forEach((result, index) => {
+        if (result.status === "rejected") {
+          const exchange = index === 0 ? "BitOasis" : "Rain";
+          console.error(`Failed to fetch ${exchange} price:`, result.reason);
+        }
+      });
+
+      // Filter out failed requests and return successful ones
+      const prices = results
+        .filter(
+          (result): result is PromiseFulfilledResult<ExchangePrice> =>
+            result.status === "fulfilled"
+        )
+        .map((result) => result.value);
+
+      if (prices.length === 0) {
+        throw new Error("No exchange prices available - all requests failed");
+      }
+
+      return prices;
+    } catch (error) {
+      console.error("Price fetching error:", error);
+      throw error;
+    }
   },
 };

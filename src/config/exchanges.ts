@@ -5,7 +5,7 @@ export const exchanges: ExchangeData[] = [
     id: "bitoasis",
     name: "BitOasis",
     logo: "/images/bitoasis-logo.png",
-    pairs: ["BTC/AED", "BTC/USD"],
+    pairs: ["BTC-AED", "BTC-USD"],
   },
   {
     id: "rain",
