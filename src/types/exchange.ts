@@ -1,6 +1,8 @@
 export interface ExchangePrice {
   exchange: string;
   price: number;
+  bid: number;
+  ask: number;
   pair: string;
   lastUpdated: string;
   change24h: number;

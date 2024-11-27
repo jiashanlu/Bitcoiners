@@ -10,17 +10,14 @@ export const PriceTracker = () => {
     isLoading,
     error,
     isError,
-  } = useQuery<ExchangePrice[], Error>(
-    "prices",
-    () => priceService.fetchPrices(),
-    {
-      refetchInterval: 30000,
-      retry: 2,
-      onError: (error: Error) => {
-        console.error("Query error:", error);
-      },
-    }
-  );
+  } = useQuery("prices", () => priceService.fetchPrices(), {
+    refetchInterval: 30000,
+    retry: 3,
+    retryDelay: 2000,
+    onError: (error: any) => {
+      console.error("Query error:", error);
+    },
+  });
 
   if (isLoading) {
     return (

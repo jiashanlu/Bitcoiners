@@ -1,6 +1,5 @@
 import React from "react";
-import { Box, Flex, Text, Badge, Icon } from "@chakra-ui/react";
-import { FiArrowUp, FiArrowDown } from "react-icons/fi";
+import { Box, Flex, Text, Badge } from "@chakra-ui/react";
 import { ExchangePrice } from "../types/exchange";
 
 export interface PriceCardProps {
@@ -8,7 +7,14 @@ export interface PriceCardProps {
 }
 
 export const PriceCard = ({ data }: PriceCardProps): JSX.Element => {
-  const isPositiveChange = data.change24h >= 0;
+  const formatPrice = (price: number) => {
+    return price.toLocaleString("en-AE", {
+      style: "currency",
+      currency: "AED",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
 
   return (
     <Box
@@ -26,28 +32,49 @@ export const PriceCard = ({ data }: PriceCardProps): JSX.Element => {
         <Badge colorScheme="blue">{data.pair}</Badge>
       </Flex>
 
-      <Text fontSize="3xl" fontWeight="bold" mb={2}>
-        {data.price.toLocaleString("en-AE", {
-          style: "currency",
-          currency: "AED",
-        })}
-      </Text>
-
-      <Flex align="center" gap={2}>
-        <Icon
-          as={isPositiveChange ? FiArrowUp : FiArrowDown}
-          color={isPositiveChange ? "green.500" : "red.500"}
-        />
-        <Text
-          color={isPositiveChange ? "green.500" : "red.500"}
-          fontWeight="medium"
-        >
-          {Math.abs(data.change24h)}%
+      <Box mb={6}>
+        <Text fontSize="sm" color="gray.500" mb={1}>
+          Market Price
         </Text>
+        <Text fontSize="2xl" fontWeight="bold">
+          {formatPrice(data.price)}
+        </Text>
+      </Box>
+
+      <Flex direction="column" gap={4}>
+        <Box
+          p={3}
+          bg="green.50"
+          borderRadius="md"
+          borderWidth="1px"
+          borderColor="green.200"
+        >
+          <Text fontSize="sm" color="green.700" fontWeight="medium">
+            BID
+          </Text>
+          <Text fontSize="xl" fontWeight="bold" color="green.600">
+            {formatPrice(data.bid)}
+          </Text>
+        </Box>
+
+        <Box
+          p={3}
+          bg="red.50"
+          borderRadius="md"
+          borderWidth="1px"
+          borderColor="red.200"
+        >
+          <Text fontSize="sm" color="red.700" fontWeight="medium">
+            ASK
+          </Text>
+          <Text fontSize="xl" fontWeight="bold" color="red.600">
+            {formatPrice(data.ask)}
+          </Text>
+        </Box>
       </Flex>
 
-      <Text fontSize="sm" color="gray.500" mt={2}>
-        24h Volume: {data.volume24h.toLocaleString()} AED
+      <Text fontSize="xs" color="gray.400" mt={4} textAlign="right">
+        Last Updated: {new Date(data.lastUpdated).toLocaleTimeString()}
       </Text>
     </Box>
   );
