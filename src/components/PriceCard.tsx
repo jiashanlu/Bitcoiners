@@ -1,6 +1,12 @@
 import React from "react";
-import { Box, Flex, Text, Badge, Divider } from "@chakra-ui/react";
+import { Box, Flex, Text, Badge, Divider, Tooltip } from "@chakra-ui/react";
 import { ExchangePrice } from "../types/exchange";
+import {
+  formatVolume,
+  getExchangeTier,
+  getNextTierInfo,
+  formatPercentage,
+} from "../utils/volumeUtils";
 
 export interface PriceCardProps {
   data: ExchangePrice;
@@ -28,10 +34,6 @@ export const PriceCard = ({
     });
   };
 
-  const formatPercentage = (value: number) => {
-    return `${(value * 100).toFixed(3)}%`;
-  };
-
   const currentFee = feeType === "maker" ? data.fees.maker : data.fees.taker;
   const effectiveBid = data.bid * (1 - currentFee);
   const effectiveAsk = data.ask * (1 + currentFee);
@@ -42,6 +44,9 @@ export const PriceCard = ({
     }
     return ((data.ask - data.bid) / data.bid) * 100;
   };
+
+  const { currentTier } = getExchangeTier(data.exchange, volume);
+  const nextTier = getNextTierInfo(data.exchange, volume);
 
   return (
     <Box
@@ -67,12 +72,32 @@ export const PriceCard = ({
 
       <Box mb={4}>
         <Box p={3} borderRadius="md" bg="gray.50">
-          <Text fontSize="sm" color="gray.600" mb={1}>
-            Current Fee ({feeType})
-          </Text>
+          <Flex justify="space-between" align="center" mb={1}>
+            <Text fontSize="sm" color="gray.600">
+              Current Fee ({feeType})
+            </Text>
+            <Badge colorScheme="purple">{currentTier}</Badge>
+          </Flex>
           <Text fontSize="lg" fontWeight="bold" color="purple.600">
             {formatPercentage(currentFee)}
           </Text>
+          {nextTier?.isNoTierStructure ? (
+            <Text fontSize="xs" color="gray.500" mt={1}>
+              No tier structure
+            </Text>
+          ) : (
+            nextTier && (
+              <Tooltip
+                label={`Next tier at ${nextTier.volume}: ${
+                  feeType === "maker" ? nextTier.maker : nextTier.taker
+                }`}
+              >
+                <Text fontSize="xs" color="gray.500" mt={1}>
+                  Next tier: {nextTier.volume} AED
+                </Text>
+              </Tooltip>
+            )
+          )}
         </Box>
       </Box>
 

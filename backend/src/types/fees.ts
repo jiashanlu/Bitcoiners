@@ -1,28 +1,28 @@
-export interface FeeTier {
-  minVolume: number; // Minimum volume in AED
-  maxVolume: number | null; // Maximum volume in AED, null for unlimited
-  makerFee: number; // As decimal (e.g., 0.001 for 0.1%)
-  takerFee: number; // As decimal
+export interface BaseTier {
+  minVolume: number;
+  maxVolume: number | null;
+  makerFee: number;
+  takerFee: number;
 }
 
-export interface OKXFeeTier extends FeeTier {
+export interface OKXFeeTier extends BaseTier {
   vipLevel: number;
-  withdrawalLimit: number; // in USD
+  withdrawalLimit: number;
 }
 
-export interface MultibankFeeTier extends FeeTier {
+export interface MultibankFeeTier extends BaseTier {
   tierLevel: number;
-  makerDiscount: number; // As decimal
-  takerDiscount: number; // As decimal
+  makerDiscount: number;
+  takerDiscount: number;
 }
 
-export interface BitOasisFeeTier extends FeeTier {
+export interface BitOasisFeeTier extends BaseTier {
   // BitOasis specific fields can be added here if needed
 }
 
 export interface RainFees {
-  makerFee: number; // Fixed at 0.0%
-  takerFee: number; // Fixed at 0.05%
+  makerFee: number;
+  takerFee: number;
 }
 
 export interface ExchangeFees {
@@ -32,7 +32,17 @@ export interface ExchangeFees {
   rain: RainFees;
 }
 
-// Common interface for all exchange responses
+export type FeeTier = OKXFeeTier | MultibankFeeTier | BitOasisFeeTier;
+
+export interface TierInfo {
+  currentTier: string;
+  nextTierVolume: number | null;
+  nextTierFees: {
+    maker: number;
+    taker: number;
+  } | null;
+}
+
 export interface ExchangePrice {
   exchange: string;
   price: number;
@@ -46,4 +56,7 @@ export interface ExchangePrice {
     maker: number;
     taker: number;
   };
+  isLowestAsk?: boolean;
+  isHighestBid?: boolean;
+  isLowestSpread?: boolean;
 }

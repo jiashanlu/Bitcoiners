@@ -3,18 +3,21 @@ import {
   Box,
   FormControl,
   FormLabel,
-  NumberInput,
-  NumberInputField,
-  NumberInputStepper,
-  NumberIncrementStepper,
-  NumberDecrementStepper,
   Select,
   Flex,
   Switch,
   Text,
   HStack,
+  Button,
+  Tooltip,
 } from "@chakra-ui/react";
 import { websocketService } from "../services/websocketService";
+import {
+  formatVolume,
+  getNextVolumeTier,
+  getPreviousVolumeTier,
+  getAllVolumeTiers,
+} from "../utils/volumeUtils";
 
 interface VolumeSelectorProps {
   volume: number;
@@ -38,6 +41,20 @@ export const VolumeSelector: React.FC<VolumeSelectorProps> = ({
     websocketService.updateVolume(value);
   };
 
+  const handleVolumeIncrement = () => {
+    const nextTier = getNextVolumeTier(volume);
+    handleVolumeChange(nextTier);
+  };
+
+  const handleVolumeDecrement = () => {
+    const prevTier = getPreviousVolumeTier(volume);
+    handleVolumeChange(prevTier);
+  };
+
+  const allTiers = getAllVolumeTiers();
+  const isMaxVolume = volume >= Math.max(...allTiers);
+  const isMinVolume = volume <= 0;
+
   return (
     <Box
       p={4}
@@ -51,21 +68,45 @@ export const VolumeSelector: React.FC<VolumeSelectorProps> = ({
       <Flex gap={6} wrap={{ base: "wrap", md: "nowrap" }} align="center">
         <FormControl flex="1" minW={{ base: "full", md: "200px" }}>
           <FormLabel fontSize="sm" color="gray.600">
-            Volume (AED)
+            30-Day Trading Volume
           </FormLabel>
-          <NumberInput
-            min={0}
-            step={10000}
-            value={volume}
-            onChange={(_, value) => handleVolumeChange(value)}
-            size="sm"
-          >
-            <NumberInputField />
-            <NumberInputStepper>
-              <NumberIncrementStepper />
-              <NumberDecrementStepper />
-            </NumberInputStepper>
-          </NumberInput>
+          <Flex align="center" gap={2}>
+            <Text fontSize="sm" color="gray.600" flex="1">
+              {formatVolume(volume)} AED
+            </Text>
+            <Flex direction="column" gap={1}>
+              <Tooltip
+                label={isMaxVolume ? "Maximum volume reached" : "Next tier"}
+              >
+                <Button
+                  size="xs"
+                  onClick={handleVolumeIncrement}
+                  isDisabled={isMaxVolume}
+                  p={0}
+                  minW="24px"
+                  h="24px"
+                  aria-label="Increase to next tier"
+                >
+                  ▲
+                </Button>
+              </Tooltip>
+              <Tooltip
+                label={isMinVolume ? "Minimum volume reached" : "Previous tier"}
+              >
+                <Button
+                  size="xs"
+                  onClick={handleVolumeDecrement}
+                  isDisabled={isMinVolume}
+                  p={0}
+                  minW="24px"
+                  h="24px"
+                  aria-label="Decrease to previous tier"
+                >
+                  ▼
+                </Button>
+              </Tooltip>
+            </Flex>
+          </Flex>
         </FormControl>
 
         <FormControl flex="2" minW={{ base: "full", md: "200px" }}>
