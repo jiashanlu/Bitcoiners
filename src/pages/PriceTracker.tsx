@@ -1,25 +1,48 @@
-import { useQuery } from "react-query";
+import React, { useState, useEffect } from "react";
 import { Box, Grid, Container, Heading, Text } from "@chakra-ui/react";
 import { PriceCard } from "../components/PriceCard";
-import { priceService } from "../services/priceService";
 import { ExchangePrice } from "../types/exchange";
+import { websocketService } from "../services/websocketService";
 
-export const PriceTracker = () => {
-  const {
-    data: prices,
-    isLoading,
-    error,
-    isError,
-  } = useQuery("prices", () => priceService.fetchPrices(), {
-    refetchInterval: 30000,
-    retry: 3,
-    retryDelay: 2000,
-    onError: (error: any) => {
-      console.error("Query error:", error);
-    },
-  });
+interface PriceTrackerState {
+  prices: ExchangePrice[];
+  isLoading: boolean;
+  error: Error | null;
+}
 
-  if (isLoading) {
+const initialState: PriceTrackerState = {
+  prices: [],
+  isLoading: true,
+  error: null,
+};
+
+export const PriceTracker: React.FC = () => {
+  const [state, setState] = useState<PriceTrackerState>(initialState);
+
+  useEffect(() => {
+    let mounted = true;
+
+    // Subscribe to WebSocket updates
+    const unsubscribe = websocketService.subscribe(
+      (newPrices: ExchangePrice[]) => {
+        if (mounted) {
+          setState((prev) => ({
+            ...prev,
+            prices: newPrices,
+            isLoading: false,
+          }));
+        }
+      }
+    );
+
+    // Cleanup on unmount
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
+  }, []);
+
+  if (state.isLoading) {
     return (
       <Container maxW="container.xl" py={8}>
         <Box p={8} textAlign="center">
@@ -29,18 +52,16 @@ export const PriceTracker = () => {
     );
   }
 
-  if (isError) {
+  if (state.error) {
     return (
       <Container maxW="container.xl" py={8}>
         <Box p={8} textAlign="center">
           <Text fontSize="xl" color="red.500">
             Error loading prices. Please try again later.
           </Text>
-          {error instanceof Error && (
-            <Text mt={2} color="gray.600">
-              {error.message}
-            </Text>
-          )}
+          <Text mt={2} color="gray.600">
+            {state.error.message}
+          </Text>
         </Box>
       </Container>
     );
@@ -52,7 +73,7 @@ export const PriceTracker = () => {
         UAE Bitcoin Exchange Prices
       </Heading>
 
-      {prices && prices.length > 0 ? (
+      {state.prices && state.prices.length > 0 ? (
         <Grid
           templateColumns={{
             base: "1fr",
@@ -61,7 +82,7 @@ export const PriceTracker = () => {
           }}
           gap={6}
         >
-          {prices.map((price: ExchangePrice) => (
+          {state.prices.map((price: ExchangePrice) => (
             <div key={price.exchange}>
               <PriceCard data={price} />
             </div>

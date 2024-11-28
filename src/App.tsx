@@ -1,5 +1,4 @@
 import { ChakraProvider, extendTheme } from "@chakra-ui/react";
-import { QueryClient, QueryClientProvider } from "react-query";
 import { PriceTracker } from "./pages/PriceTracker";
 
 const theme = extendTheme({
@@ -12,15 +11,11 @@ const theme = extendTheme({
   },
 });
 
-const queryClient = new QueryClient();
-
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ChakraProvider theme={theme}>
-        <PriceTracker />
-      </ChakraProvider>
-    </QueryClientProvider>
+    <ChakraProvider theme={theme}>
+      <PriceTracker />
+    </ChakraProvider>
   );
 }
 
