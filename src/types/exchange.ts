@@ -7,6 +7,14 @@ export interface ExchangePrice {
   lastUpdated: string;
   change24h: number;
   volume24h: number;
+  fees: {
+    maker: number;
+    taker: number;
+  };
+  // Best price indicators
+  isLowestAsk?: boolean;
+  isHighestBid?: boolean;
+  isLowestSpread?: boolean;
 }
 
 export interface ExchangeData {
@@ -14,5 +22,4 @@ export interface ExchangeData {
   name: string;
   logo: string;
   pairs: string[];
-  apiEndpoint?: string;
 }

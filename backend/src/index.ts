@@ -57,6 +57,28 @@ async function startServer() {
     });
     console.log("WebSocket server listening on 0.0.0.0:3001");
 
+    // Handle WebSocket connections
+    wss.on("connection", (ws: WebSocket) => {
+      console.log("Client connected");
+
+      ws.on("message", async (message: string) => {
+        try {
+          const data = JSON.parse(message);
+
+          // Handle volume updates
+          if (data.type === "volume_update") {
+            await priceService.updateVolume(data.volume);
+          }
+        } catch (error) {
+          console.error("Error processing WebSocket message:", error);
+        }
+      });
+
+      ws.on("close", () => {
+        console.log("Client disconnected");
+      });
+    });
+
     // Forward price updates to connected clients using the subscriber connection
     await redisSub.subscribe("price_updates");
     console.log("Subscribed to price_updates channel");

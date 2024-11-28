@@ -1,12 +1,24 @@
 import React from "react";
-import { Box, Flex, Text, Badge } from "@chakra-ui/react";
+import { Box, Flex, Text, Badge, Divider } from "@chakra-ui/react";
 import { ExchangePrice } from "../types/exchange";
 
 export interface PriceCardProps {
   data: ExchangePrice;
+  feeType: "maker" | "taker";
+  volume: number;
+  isBestBid?: boolean;
+  isBestAsk?: boolean;
+  showFeeSpread: boolean;
 }
 
-export const PriceCard = ({ data }: PriceCardProps): JSX.Element => {
+export const PriceCard = ({
+  data,
+  feeType,
+  volume,
+  isBestBid,
+  isBestAsk,
+  showFeeSpread,
+}: PriceCardProps): JSX.Element => {
   const formatPrice = (price: number) => {
     return price.toLocaleString("en-AE", {
       style: "currency",
@@ -16,64 +28,114 @@ export const PriceCard = ({ data }: PriceCardProps): JSX.Element => {
     });
   };
 
+  const formatPercentage = (value: number) => {
+    return `${(value * 100).toFixed(3)}%`;
+  };
+
+  const currentFee = feeType === "maker" ? data.fees.maker : data.fees.taker;
+  const effectiveBid = data.bid * (1 - currentFee);
+  const effectiveAsk = data.ask * (1 + currentFee);
+
+  const getSpread = () => {
+    if (showFeeSpread) {
+      return ((effectiveAsk - effectiveBid) / effectiveBid) * 100;
+    }
+    return ((data.ask - data.bid) / data.bid) * 100;
+  };
+
   return (
     <Box
-      p={6}
+      p={4}
       borderRadius="xl"
       bg="white"
-      boxShadow="xl"
+      boxShadow="sm"
       transition="transform 0.2s"
-      _hover={{ transform: "translateY(-2px)" }}
+      _hover={{ transform: "translateY(-2px)", boxShadow: "md" }}
+      minW="300px"
+      h="full"
+      borderWidth="1px"
+      borderColor="gray.100"
     >
       <Flex justify="space-between" align="center" mb={4}>
-        <Text fontSize="xl" fontWeight="bold">
+        <Text fontSize="lg" fontWeight="bold" color="gray.800">
           {data.exchange}
         </Text>
-        <Badge colorScheme="blue">{data.pair}</Badge>
+        <Badge colorScheme="blue" fontSize="sm">
+          {data.pair}
+        </Badge>
       </Flex>
 
-      <Box mb={6}>
-        <Text fontSize="sm" color="gray.500" mb={1}>
-          Market Price
-        </Text>
-        <Text fontSize="2xl" fontWeight="bold">
-          {formatPrice(data.price)}
-        </Text>
+      <Box mb={4}>
+        <Box p={3} borderRadius="md" bg="gray.50">
+          <Text fontSize="sm" color="gray.600" mb={1}>
+            Current Fee ({feeType})
+          </Text>
+          <Text fontSize="lg" fontWeight="bold" color="purple.600">
+            {formatPercentage(currentFee)}
+          </Text>
+        </Box>
       </Box>
 
-      <Flex direction="column" gap={4}>
+      <Box mb={4}>
         <Box
           p={3}
-          bg="green.50"
           borderRadius="md"
           borderWidth="1px"
-          borderColor="green.200"
+          borderColor={isBestBid ? "red.200" : "gray.100"}
         >
-          <Text fontSize="sm" color="green.700" fontWeight="medium">
-            BID
+          <Text fontSize="sm" color="gray.600" mb={1}>
+            BID (Sell)
           </Text>
-          <Text fontSize="xl" fontWeight="bold" color="green.600">
-            {formatPrice(data.bid)}
+          <Text
+            fontSize="xl"
+            fontWeight="bold"
+            color={isBestBid ? "red.500" : "gray.800"}
+            mb={1}
+          >
+            {formatPrice(effectiveBid)}
+          </Text>
+          <Text fontSize="sm" color="gray.500">
+            Pre-fee: {formatPrice(data.bid)}
           </Text>
         </Box>
+      </Box>
 
+      <Box mb={4}>
         <Box
           p={3}
-          bg="red.50"
           borderRadius="md"
           borderWidth="1px"
-          borderColor="red.200"
+          borderColor={isBestAsk ? "green.200" : "gray.100"}
         >
-          <Text fontSize="sm" color="red.700" fontWeight="medium">
-            ASK
+          <Text fontSize="sm" color="gray.600" mb={1}>
+            ASK (Buy)
           </Text>
-          <Text fontSize="xl" fontWeight="bold" color="red.600">
-            {formatPrice(data.ask)}
+          <Text
+            fontSize="xl"
+            fontWeight="bold"
+            color={isBestAsk ? "green.500" : "gray.800"}
+            mb={1}
+          >
+            {formatPrice(effectiveAsk)}
+          </Text>
+          <Text fontSize="sm" color="gray.500">
+            Pre-fee: {formatPrice(data.ask)}
           </Text>
         </Box>
-      </Flex>
+      </Box>
 
-      <Text fontSize="xs" color="gray.400" mt={4} textAlign="right">
+      <Box>
+        <Box p={3} borderRadius="md" bg="gray.50">
+          <Text fontSize="sm" color="gray.600" mb={1}>
+            Spread {showFeeSpread ? "(with fees)" : "(without fees)"}
+          </Text>
+          <Text fontSize="lg" fontWeight="bold" color="gray.700">
+            {getSpread().toFixed(3)}%
+          </Text>
+        </Box>
+      </Box>
+
+      <Text fontSize="xs" color="gray.400" mt={3} textAlign="right">
         Last Updated: {new Date(data.lastUpdated).toLocaleTimeString()}
       </Text>
     </Box>

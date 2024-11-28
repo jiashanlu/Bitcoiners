@@ -9,6 +9,7 @@ class WebSocketService {
   private reconnectAttempts: number = 0;
   private callbacks: Set<PriceUpdateCallback> = new Set();
   private readonly wsUrl: string;
+  private currentVolume: number = 0;
 
   constructor() {
     // Use environment variable for WebSocket URL or fallback to IP address
@@ -29,6 +30,10 @@ class WebSocketService {
       this.ws.onopen = () => {
         console.log("Connected to price WebSocket");
         this.reconnectAttempts = 0;
+        // Send current volume on reconnect if it exists
+        if (this.currentVolume > 0) {
+          this.updateVolume(this.currentVolume);
+        }
       };
 
       this.ws.onmessage = (event) => {
@@ -74,6 +79,18 @@ class WebSocketService {
         console.error("Error in subscriber callback:", error);
       }
     });
+  }
+
+  updateVolume(volume: number) {
+    this.currentVolume = volume;
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(
+        JSON.stringify({
+          type: "volume_update",
+          volume: volume,
+        })
+      );
+    }
   }
 
   subscribe(callback: PriceUpdateCallback): () => void {
