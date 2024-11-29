@@ -110,7 +110,7 @@ export function getAllVolumeTiers(): number[] {
     if (Array.isArray(exchangeFee)) {
       exchangeFee.forEach((tier) => {
         if (tier.minVolume > 0) volumeTiers.add(tier.minVolume);
-        if (tier.maxVolume) volumeTiers.add(tier.maxVolume);
+        // if (tier.maxVolume) volumeTiers.add(tier.maxVolume); // not needed, bringgs confusion
       });
     }
   });
