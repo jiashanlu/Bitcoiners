@@ -1,0 +1,64 @@
+kind: pipeline
+type: docker
+name: default
+
+steps:
+  - name: test-frontend
+    image: node:18
+    commands:
+      - npm ci
+      - npm run lint
+      - npm run build
+
+  - name: test-backend
+    image: node:18
+    commands:
+      - cd backend
+      - npm ci
+      - npm run build
+
+  - name: deploy-staging
+    image: appleboy/drone-ssh
+    settings:
+      host:
+        from_secret: staging_host
+      username:
+        from_secret: ssh_username
+      key:
+        from_secret: ssh_key
+      port: 22
+      script:
+        - cd /opt/bitoasis-staging
+        - git pull origin develop
+        - docker-compose -f docker-compose.staging.yml down
+        - docker-compose -f docker-compose.staging.yml up -d --build
+    when:
+      branch:
+        - develop
+
+  - name: deploy-production
+    image: appleboy/drone-ssh
+    settings:
+      host:
+        from_secret: production_host
+      username:
+        from_secret: ssh_username
+      key:
+        from_secret: ssh_key
+      port: 22
+      script:
+        - cd /opt/bitoasis-prod
+        - git pull origin main
+        - docker-compose -f docker-compose.prod.yml down
+        - docker-compose -f docker-compose.prod.yml up -d --build
+    when:
+      branch:
+        - main
+
+trigger:
+  branch:
+    - main
+    - develop
+  event:
+    - push
+    - pull_request

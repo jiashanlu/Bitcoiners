@@ -18,8 +18,10 @@ class WebSocketService {
   private currentPair: TradingPair = "BTC/AED";
 
   constructor() {
-    // Use environment variable for WebSocket URL or fallback to IP address
-    this.wsUrl = import.meta.env.VITE_WS_URL || "ws://192.168.4.59:3001";
+    // Use relative path to leverage Vite's proxy configuration
+    this.wsUrl = `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${
+      window.location.host
+    }/ws`;
     this.connect();
 
     // Initialize callback sets for both pairs
