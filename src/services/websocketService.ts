@@ -1,21 +1,15 @@
-import { ExchangePrice, TradingPair } from "../types/exchange";
+import { ExchangePrice } from "../types/exchange";
 
 type PriceUpdateCallback = (prices: ExchangePrice[]) => void;
-
-interface WebSocketMessage {
-  pair: TradingPair;
-  prices: ExchangePrice[];
-}
 
 class WebSocketService {
   private ws: WebSocket | null = null;
   private reconnectTimeout: number = 3000;
   private maxReconnectAttempts: number = 5;
   private reconnectAttempts: number = 0;
-  private callbacks: Map<TradingPair, Set<PriceUpdateCallback>> = new Map();
+  private callbacks: Set<PriceUpdateCallback> = new Set();
   private readonly wsUrl: string;
   private currentVolume: number = 0;
-  private currentPair: TradingPair = "BTC/AED";
 
   constructor() {
     // Use relative path to leverage Vite's proxy configuration
@@ -23,10 +17,6 @@ class WebSocketService {
       window.location.host
     }/ws`;
     this.connect();
-
-    // Initialize callback sets for both pairs
-    this.callbacks.set("BTC/AED", new Set());
-    this.callbacks.set("USDT/AED", new Set());
   }
 
   private connect() {
@@ -42,21 +32,16 @@ class WebSocketService {
       this.ws.onopen = () => {
         console.log("Connected to price WebSocket");
         this.reconnectAttempts = 0;
-        // Send current volume and pair on reconnect if they exist
+        // Send current volume on reconnect if it exists
         if (this.currentVolume > 0) {
           this.updateVolume(this.currentVolume);
         }
-        this.updatePair(this.currentPair);
       };
 
       this.ws.onmessage = (event) => {
         try {
-          const message: WebSocketMessage = JSON.parse(event.data);
-          console.log("Received message:", message);
-
-          if (message.pair && Array.isArray(message.prices)) {
-            this.notifySubscribers(message.pair, message.prices);
-          }
+          const prices = JSON.parse(event.data);
+          this.notifySubscribers(prices);
         } catch (error) {
           console.error("Error processing WebSocket message:", error);
           console.error("Raw message:", event.data);
@@ -88,17 +73,14 @@ class WebSocketService {
     setTimeout(() => this.connect(), delay);
   }
 
-  private notifySubscribers(pair: TradingPair, prices: ExchangePrice[]) {
-    const pairCallbacks = this.callbacks.get(pair);
-    if (pairCallbacks) {
-      pairCallbacks.forEach((callback) => {
-        try {
-          callback(prices);
-        } catch (error) {
-          console.error("Error in subscriber callback:", error);
-        }
-      });
-    }
+  private notifySubscribers(prices: ExchangePrice[]) {
+    this.callbacks.forEach((callback) => {
+      try {
+        callback(prices);
+      } catch (error) {
+        console.error("Error in subscriber callback:", error);
+      }
+    });
   }
 
   updateVolume(volume: number) {
@@ -113,32 +95,10 @@ class WebSocketService {
     }
   }
 
-  updatePair(pair: TradingPair) {
-    this.currentPair = pair;
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(
-        JSON.stringify({
-          type: "pair_update",
-          pair: pair,
-        })
-      );
-    }
-  }
-
-  subscribe(pair: TradingPair, callback: PriceUpdateCallback): () => void {
-    const callbacks = this.callbacks.get(pair);
-    if (callbacks) {
-      callbacks.add(callback);
-    }
-
-    // Send current pair to server when subscribing
-    this.updatePair(pair);
-
+  subscribe(callback: PriceUpdateCallback): () => void {
+    this.callbacks.add(callback);
     return () => {
-      const callbacks = this.callbacks.get(pair);
-      if (callbacks) {
-        callbacks.delete(callback);
-      }
+      this.callbacks.delete(callback);
     };
   }
 

@@ -6,16 +6,16 @@ import { OKXExchange } from "./exchanges/OKXExchange";
 import { BitOasisExchange } from "./exchanges/BitOasisExchange";
 import { RainExchange } from "./exchanges/RainExchange";
 import { MultibankExchange } from "./exchanges/MultibankExchange";
-import { BaseExchange, TradingPair } from "./exchanges/BaseExchange";
+import { BaseExchange } from "./exchanges/BaseExchange";
 
 export class PriceService {
   private redis: Redis;
   private priceRepository: Repository<Price>;
   private updateInterval: NodeJS.Timeout | null = null;
+  private readonly CACHE_KEY = "latest_prices";
   private readonly UPDATE_INTERVAL = 15000; // 15 seconds
   private exchanges: BaseExchange[] = [];
   private currentVolume: number = 0;
-  private readonly PAIRS: TradingPair[] = ["BTC/AED", "USDT/AED"];
 
   constructor(redis: Redis, priceRepository: Repository<Price>) {
     this.redis = redis;
@@ -31,16 +31,8 @@ export class PriceService {
   }
 
   async start() {
-    // Initialize cache for each pair
-    for (const pair of this.PAIRS) {
-      const cacheKey = this.getCacheKey(pair);
-      await this.redis.set(cacheKey, JSON.stringify([]));
-    }
+    await this.redis.set(this.CACHE_KEY, JSON.stringify([]));
     this.startUpdateCycle();
-  }
-
-  private getCacheKey(pair: TradingPair): string {
-    return `latest_prices_${pair.replace("/", "_")}`;
   }
 
   // Method to update trading volume
@@ -64,12 +56,12 @@ export class PriceService {
 
       const savedPrice = await this.priceRepository.save(price);
       console.log(
-        `Saved ${priceData.exchange} ${priceData.pair} price to database with ID: ${savedPrice.id}`
+        `Saved ${priceData.exchange} price to database with ID: ${savedPrice.id}`
       );
       return true;
     } catch (error) {
       console.error(
-        `Error saving ${priceData.exchange} ${priceData.pair} price to database:`,
+        `Error saving ${priceData.exchange} price to database:`,
         error
       );
       return false;
@@ -78,55 +70,55 @@ export class PriceService {
 
   private async updatePrices() {
     try {
-      for (const pair of this.PAIRS) {
-        // Fetch prices from all exchanges with current volume for each pair
-        const pricePromises = this.exchanges.map((exchange) =>
-          exchange.fetchPrice(pair).then((price) => {
-            if (price) {
-              // Update fees based on current volume
-              const fees = exchange.getFeesByVolume(this.currentVolume);
-              return {
-                ...price,
-                fees,
-              };
-            }
-            return null;
-          })
-        );
-
-        const prices = (await Promise.all(pricePromises)).filter(
-          (price): price is ExchangePrice => price !== null
-        );
-
-        if (prices.length > 0) {
-          // Save raw prices to database
-          for (const price of prices) {
-            await this.savePriceToDatabase(price);
+      // Fetch prices from all exchanges with current volume
+      const pricePromises = this.exchanges.map((exchange) =>
+        exchange.fetchPrice().then((price) => {
+          if (price) {
+            // Update fees based on current volume
+            const fees = exchange.getFeesByVolume(this.currentVolume);
+            return {
+              ...price,
+              fees,
+            };
           }
+          return null;
+        })
+      );
 
-          // Sort prices by exchange name
-          const sortedPrices = prices.sort((a, b) =>
-            a.exchange.localeCompare(b.exchange)
-          );
+      const prices = (await Promise.all(pricePromises)).filter(
+        (price): price is ExchangePrice => price !== null
+      );
 
-          // Find best raw prices (before fees)
-          const lowestAsk = Math.min(...prices.map((p) => p.ask));
-          const highestBid = Math.max(...prices.map((p) => p.bid));
-          const lowestSpread = Math.min(...prices.map((p) => p.ask - p.bid));
-
-          // Add best price indicators based on raw prices
-          const enrichedPrices = sortedPrices.map((price) => ({
-            ...price,
-            isLowestAsk: price.ask === lowestAsk,
-            isHighestBid: price.bid === highestBid,
-            isLowestSpread: price.ask - price.bid === lowestSpread,
-          }));
-
-          // Update cache for this pair
-          const cacheKey = this.getCacheKey(pair);
-          await this.redis.set(cacheKey, JSON.stringify(enrichedPrices));
-          console.log(`Updated prices for ${pair} in Redis cache`);
+      if (prices.length > 0) {
+        // Save raw prices to database
+        for (const price of prices) {
+          await this.savePriceToDatabase(price);
         }
+
+        // Sort prices by exchange name
+        const sortedPrices = prices.sort((a, b) =>
+          a.exchange.localeCompare(b.exchange)
+        );
+
+        // Find best raw prices (before fees)
+        const lowestAsk = Math.min(...prices.map((p) => p.ask));
+        const highestBid = Math.max(...prices.map((p) => p.bid));
+        const lowestSpread = Math.min(...prices.map((p) => p.ask - p.bid));
+
+        // Add best price indicators based on raw prices
+        const enrichedPrices = sortedPrices.map((price) => ({
+          ...price,
+          isLowestAsk: price.ask === lowestAsk,
+          isHighestBid: price.bid === highestBid,
+          isLowestSpread: price.ask - price.bid === lowestSpread,
+        }));
+
+        // Update cache and publish
+        await this.redis.set(this.CACHE_KEY, JSON.stringify(enrichedPrices));
+        await this.redis.publish(
+          "price_updates",
+          JSON.stringify(enrichedPrices)
+        );
       }
     } catch (error) {
       console.error("Error in update cycle:", error);

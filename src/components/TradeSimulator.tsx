@@ -45,15 +45,14 @@ export const TradeSimulator: React.FC<TradeSimulatorProps> = ({
   volume,
   feeType,
 }) => {
-  const [amount, setAmount] = useState<number>(1);
-
-  const isUSDT = prices.length > 0 && prices[0].pair === "USDT/AED";
+  const [btcAmount, setBtcAmount] = useState<number>(1);
 
   const bestTrade = useMemo<BestTrade | null>(() => {
     if (!prices.length) return null;
 
     let bestResult: BestTrade | null = null;
 
+    // Calculate effective prices with fees for each exchange
     const effectivePrices: EffectivePrice[] = prices.map((price) => {
       const fee = feeType === "maker" ? price.fees.maker : price.fees.taker;
       const buyPrice = price.ask * (1 + fee);
@@ -65,9 +64,10 @@ export const TradeSimulator: React.FC<TradeSimulatorProps> = ({
       };
     });
 
+    // Find best combination, including within same exchange
     effectivePrices.forEach((buyOption) => {
       effectivePrices.forEach((sellOption) => {
-        const profit = (sellOption.sellPrice - buyOption.buyPrice) * amount;
+        const profit = (sellOption.sellPrice - buyOption.buyPrice) * btcAmount;
         const profitPercentage =
           ((sellOption.sellPrice - buyOption.buyPrice) / buyOption.buyPrice) *
           100;
@@ -86,37 +86,16 @@ export const TradeSimulator: React.FC<TradeSimulatorProps> = ({
     });
 
     return bestResult;
-  }, [prices, amount, feeType]);
+  }, [prices, btcAmount, feeType]);
 
   const formatPrice = (price: number) => {
     return price.toLocaleString("en-AE", {
       style: "currency",
       currency: "AED",
-      minimumFractionDigits: isUSDT ? 5 : 2,
-      maximumFractionDigits: isUSDT ? 5 : 2,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     });
   };
-
-  const getInputConfig = () => {
-    if (isUSDT) {
-      return {
-        min: 1000,
-        step: 1000,
-        precision: 0,
-        defaultValue: 1000,
-        label: "USDT Amount",
-      };
-    }
-    return {
-      min: 0.0001,
-      step: 0.1,
-      precision: 4,
-      defaultValue: 1,
-      label: "BTC Amount",
-    };
-  };
-
-  const inputConfig = getInputConfig();
 
   return (
     <Box
@@ -125,45 +104,28 @@ export const TradeSimulator: React.FC<TradeSimulatorProps> = ({
       borderRadius="xl"
       shadow="lg"
       borderWidth="2px"
-      borderColor="#F7931A"
-      _dark={{
-        bg: "#1A1A1A",
-        borderColor: "#F7931A",
-      }}
+      borderColor="gray.200"
     >
       <Flex justify="space-between" align="center" mb={6}>
-        <Text
-          fontSize="2xl"
-          fontWeight="bold"
-          color="#1A1A1A"
-          _dark={{ color: "white" }}
-        >
+        <Text fontSize="2xl" fontWeight="bold">
           Arbitrage Simulator
         </Text>
         <FormControl maxW="200px">
           <NumberInput
-            value={amount}
-            onChange={(_, value) => setAmount(value)}
-            min={inputConfig.min}
-            step={inputConfig.step}
-            precision={inputConfig.precision}
-            defaultValue={inputConfig.defaultValue}
+            value={btcAmount}
+            onChange={(_, value) => setBtcAmount(value)}
+            min={0.0001}
+            step={0.1}
+            precision={4}
           >
-            <NumberInputField
-              borderColor="#F7931A"
-              _hover={{ borderColor: "#F7931A" }}
-              _focus={{
-                borderColor: "#F7931A",
-                boxShadow: "0 0 0 1px #F7931A",
-              }}
-            />
+            <NumberInputField />
             <NumberInputStepper>
-              <NumberIncrementStepper borderColor="#F7931A" color="#F7931A" />
-              <NumberDecrementStepper borderColor="#F7931A" color="#F7931A" />
+              <NumberIncrementStepper />
+              <NumberDecrementStepper />
             </NumberInputStepper>
           </NumberInput>
-          <FormLabel fontSize="sm" color="#4A5568" _dark={{ color: "#A0AEC0" }}>
-            {inputConfig.label}
+          <FormLabel fontSize="sm" color="gray.600">
+            BTC Amount
           </FormLabel>
         </FormControl>
       </Flex>
@@ -173,19 +135,15 @@ export const TradeSimulator: React.FC<TradeSimulatorProps> = ({
           <Box
             p={4}
             borderRadius="lg"
-            bg="#F7FAFC"
+            bg="green.50"
             borderWidth="1px"
-            borderColor="#009739"
-            _dark={{
-              bg: "#2D3748",
-              borderColor: "#009739",
-            }}
+            borderColor="green.200"
           >
             <Stat>
-              <StatLabel color="#009739">Best Buy At</StatLabel>
-              <StatNumber color="#009739">{bestTrade.buyExchange}</StatNumber>
-              <StatHelpText color="#4A5568" _dark={{ color: "#A0AEC0" }}>
-                {formatPrice(bestTrade.buyPrice)} / {isUSDT ? "USDT" : "BTC"}
+              <StatLabel color="green.700">Best Buy At</StatLabel>
+              <StatNumber color="green.600">{bestTrade.buyExchange}</StatNumber>
+              <StatHelpText>
+                {formatPrice(bestTrade.buyPrice)} / BTC
               </StatHelpText>
             </Stat>
           </Box>
@@ -193,19 +151,15 @@ export const TradeSimulator: React.FC<TradeSimulatorProps> = ({
           <Box
             p={4}
             borderRadius="lg"
-            bg="#F7FAFC"
+            bg="red.50"
             borderWidth="1px"
-            borderColor="#CE1126"
-            _dark={{
-              bg: "#2D3748",
-              borderColor: "#CE1126",
-            }}
+            borderColor="red.200"
           >
             <Stat>
-              <StatLabel color="#CE1126">Best Sell At</StatLabel>
-              <StatNumber color="#CE1126">{bestTrade.sellExchange}</StatNumber>
-              <StatHelpText color="#4A5568" _dark={{ color: "#A0AEC0" }}>
-                {formatPrice(bestTrade.sellPrice)} / {isUSDT ? "USDT" : "BTC"}
+              <StatLabel color="red.700">Best Sell At</StatLabel>
+              <StatNumber color="red.600">{bestTrade.sellExchange}</StatNumber>
+              <StatHelpText>
+                {formatPrice(bestTrade.sellPrice)} / BTC
               </StatHelpText>
             </Stat>
           </Box>
@@ -213,32 +167,18 @@ export const TradeSimulator: React.FC<TradeSimulatorProps> = ({
           <Box
             p={4}
             borderRadius="lg"
-            bg="#F7FAFC"
+            bg={bestTrade.profit > 0 ? "blue.50" : "gray.50"}
             borderWidth="1px"
-            borderColor={bestTrade.profit > 0 ? "#F7931A" : "gray.200"}
-            _dark={{
-              bg: "#2D3748",
-              borderColor: bestTrade.profit > 0 ? "#F7931A" : "gray.700",
-            }}
+            borderColor={bestTrade.profit > 0 ? "blue.200" : "gray.200"}
           >
             <Stat>
-              <StatLabel
-                color={bestTrade.profit > 0 ? "#F7931A" : "#4A5568"}
-                _dark={{
-                  color: bestTrade.profit > 0 ? "#F7931A" : "#A0AEC0",
-                }}
-              >
-                Potential Profit
-              </StatLabel>
+              <StatLabel>Potential Profit</StatLabel>
               <StatNumber
-                color={bestTrade.profit > 0 ? "#F7931A" : "#4A5568"}
-                _dark={{
-                  color: bestTrade.profit > 0 ? "#F7931A" : "#A0AEC0",
-                }}
+                color={bestTrade.profit > 0 ? "blue.500" : "gray.600"}
               >
                 {formatPrice(bestTrade.profit)}
               </StatNumber>
-              <StatHelpText color="#4A5568" _dark={{ color: "#A0AEC0" }}>
+              <StatHelpText>
                 <StatArrow
                   type={bestTrade.profit > 0 ? "increase" : "decrease"}
                 />

@@ -1,6 +1,6 @@
 import React from "react";
-import { Box, Flex, Text, Badge, Tooltip } from "@chakra-ui/react";
-import { ExchangePrice, TradingPair } from "../types/exchange";
+import { Box, Flex, Text, Badge, Divider, Tooltip } from "@chakra-ui/react";
+import { ExchangePrice } from "../types/exchange";
 import {
   formatVolume,
   getExchangeTier,
@@ -26,59 +26,13 @@ export const PriceCard = ({
   showFeeSpread,
 }: PriceCardProps): JSX.Element => {
   const formatPrice = (price: number) => {
-    const decimals = data.pair === "USDT/AED" ? 5 : 2;
     return price.toLocaleString("en-AE", {
       style: "currency",
       currency: "AED",
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     });
   };
-
-  // Handle Rain exchange with USDT pair
-  if (data.exchange === "Rain" && data.pair === "USDT/AED") {
-    return (
-      <Box
-        p={4}
-        borderRadius="xl"
-        bg="white"
-        boxShadow="sm"
-        minW="300px"
-        h="full"
-        borderWidth="1px"
-        borderColor="gray.300"
-        _dark={{
-          bg: "#1A1A1A",
-          borderColor: "gray.600",
-        }}
-      >
-        <Flex justify="space-between" align="center" mb={4}>
-          <Text
-            fontSize="lg"
-            fontWeight="bold"
-            color="#1A1A1A"
-            _dark={{ color: "white" }}
-          >
-            {data.exchange}
-          </Text>
-          <Badge bg="#F7931A" color="white">
-            {data.pair}
-          </Badge>
-        </Flex>
-        <Box
-          p={8}
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-          textAlign="center"
-        >
-          <Text fontSize="lg" color="#4A5568" _dark={{ color: "#A0AEC0" }}>
-            Pair not available
-          </Text>
-        </Box>
-      </Box>
-    );
-  }
 
   const currentFee = feeType === "maker" ? data.fees.maker : data.fees.taker;
   const effectiveBid = data.bid * (1 - currentFee);
@@ -105,46 +59,30 @@ export const PriceCard = ({
       minW="300px"
       h="full"
       borderWidth="1px"
-      borderColor="#F7931A"
-      _dark={{
-        bg: "#1A1A1A",
-        borderColor: "#F7931A",
-      }}
+      borderColor="gray.100"
     >
       <Flex justify="space-between" align="center" mb={4}>
-        <Text
-          fontSize="lg"
-          fontWeight="bold"
-          color="#1A1A1A"
-          _dark={{ color: "white" }}
-        >
+        <Text fontSize="lg" fontWeight="bold" color="gray.800">
           {data.exchange}
         </Text>
-        <Badge bg="#F7931A" color="white">
+        <Badge colorScheme="blue" fontSize="sm">
           {data.pair}
         </Badge>
       </Flex>
 
       <Box mb={4}>
-        <Box p={3} borderRadius="md" bg="#F7FAFC" _dark={{ bg: "#2D3748" }}>
+        <Box p={3} borderRadius="md" bg="gray.50">
           <Flex justify="space-between" align="center" mb={1}>
-            <Text fontSize="sm" color="#4A5568" _dark={{ color: "#A0AEC0" }}>
+            <Text fontSize="sm" color="gray.600">
               Current Fee ({feeType})
             </Text>
-            <Badge bg="#F7931A" color="white">
-              {currentTier}
-            </Badge>
+            <Badge colorScheme="purple">{currentTier}</Badge>
           </Flex>
-          <Text fontSize="lg" fontWeight="bold" color="#F7931A">
+          <Text fontSize="lg" fontWeight="bold" color="purple.600">
             {formatPercentage(currentFee)}
           </Text>
           {nextTier?.isNoTierStructure ? (
-            <Text
-              fontSize="xs"
-              color="#4A5568"
-              _dark={{ color: "#A0AEC0" }}
-              mt={1}
-            >
+            <Text fontSize="xs" color="gray.500" mt={1}>
               No tier structure
             </Text>
           ) : (
@@ -154,12 +92,7 @@ export const PriceCard = ({
                   feeType === "maker" ? nextTier.maker : nextTier.taker
                 }`}
               >
-                <Text
-                  fontSize="xs"
-                  color="#4A5568"
-                  _dark={{ color: "#A0AEC0" }}
-                  mt={1}
-                >
+                <Text fontSize="xs" color="gray.500" mt={1}>
                   Next tier: {nextTier.volume} AED
                 </Text>
               </Tooltip>
@@ -173,31 +106,20 @@ export const PriceCard = ({
           p={3}
           borderRadius="md"
           borderWidth="1px"
-          borderColor={isBestBid ? "#CE1126" : "gray.200"}
-          _dark={{
-            borderColor: isBestBid ? "#CE1126" : "gray.700",
-          }}
+          borderColor={isBestBid ? "red.200" : "gray.100"}
         >
-          <Text
-            fontSize="sm"
-            color="#4A5568"
-            _dark={{ color: "#A0AEC0" }}
-            mb={1}
-          >
+          <Text fontSize="sm" color="gray.600" mb={1}>
             BID (Sell)
           </Text>
           <Text
             fontSize="xl"
             fontWeight="bold"
-            color={isBestBid ? "#CE1126" : "#1A1A1A"}
-            _dark={{
-              color: isBestBid ? "#CE1126" : "white",
-            }}
+            color={isBestBid ? "red.500" : "gray.800"}
             mb={1}
           >
             {formatPrice(effectiveBid)}
           </Text>
-          <Text fontSize="sm" color="#4A5568" _dark={{ color: "#A0AEC0" }}>
+          <Text fontSize="sm" color="gray.500">
             Pre-fee: {formatPrice(data.bid)}
           </Text>
         </Box>
@@ -208,59 +130,37 @@ export const PriceCard = ({
           p={3}
           borderRadius="md"
           borderWidth="1px"
-          borderColor={isBestAsk ? "#009739" : "gray.200"}
-          _dark={{
-            borderColor: isBestAsk ? "#009739" : "gray.700",
-          }}
+          borderColor={isBestAsk ? "green.200" : "gray.100"}
         >
-          <Text
-            fontSize="sm"
-            color="#4A5568"
-            _dark={{ color: "#A0AEC0" }}
-            mb={1}
-          >
+          <Text fontSize="sm" color="gray.600" mb={1}>
             ASK (Buy)
           </Text>
           <Text
             fontSize="xl"
             fontWeight="bold"
-            color={isBestAsk ? "#009739" : "#1A1A1A"}
-            _dark={{
-              color: isBestAsk ? "#009739" : "white",
-            }}
+            color={isBestAsk ? "green.500" : "gray.800"}
             mb={1}
           >
             {formatPrice(effectiveAsk)}
           </Text>
-          <Text fontSize="sm" color="#4A5568" _dark={{ color: "#A0AEC0" }}>
+          <Text fontSize="sm" color="gray.500">
             Pre-fee: {formatPrice(data.ask)}
           </Text>
         </Box>
       </Box>
 
       <Box>
-        <Box p={3} borderRadius="md" bg="#F7FAFC" _dark={{ bg: "#2D3748" }}>
-          <Text
-            fontSize="sm"
-            color="#4A5568"
-            _dark={{ color: "#A0AEC0" }}
-            mb={1}
-          >
+        <Box p={3} borderRadius="md" bg="gray.50">
+          <Text fontSize="sm" color="gray.600" mb={1}>
             Spread {showFeeSpread ? "(with fees)" : "(without fees)"}
           </Text>
-          <Text fontSize="lg" fontWeight="bold" color="#F7931A">
+          <Text fontSize="lg" fontWeight="bold" color="gray.700">
             {getSpread().toFixed(3)}%
           </Text>
         </Box>
       </Box>
 
-      <Text
-        fontSize="xs"
-        color="#4A5568"
-        _dark={{ color: "#A0AEC0" }}
-        mt={3}
-        textAlign="right"
-      >
+      <Text fontSize="xs" color="gray.400" mt={3} textAlign="right">
         Last Updated: {new Date(data.lastUpdated).toLocaleTimeString()}
       </Text>
     </Box>
