@@ -17,6 +17,21 @@ let priceService: PriceService;
 // Define supported trading pairs
 const SUPPORTED_PAIRS: TradingPair[] = ["BTC/AED", "USDT/AED"];
 
+// Health check endpoint
+app.get("/health", (req, res) => {
+  res.json({ status: "healthy", timestamp: new Date().toISOString() });
+});
+
+// Root endpoint
+app.get("/", (req, res) => {
+  res.json({
+    service: "Bitcoiners Backend",
+    version: "1.0.0",
+    status: "running",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 async function startServer() {
   try {
     // Parse DATABASE_URL for TypeORM connection

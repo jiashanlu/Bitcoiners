@@ -14,6 +14,13 @@ services:
       - type: rewrite
         source: /*
         destination: /index.html
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
 
   # Backend API Service
   - type: web
@@ -22,7 +29,9 @@ services:
     region: singapore
     buildCommand: cd backend && npm ci && npm run build
     startCommand: cd backend && node dist/index.js
-    healthCheckPath: /
+    healthCheckPath: /health
+    healthCheckTimeout: 5
+    numInstances: 1
     envVars:
       - key: NODE_ENV
         value: production
@@ -45,22 +54,25 @@ services:
         value: "true"
       - key: TYPEORM_ENTITIES
         value: dist/models/*.js
-      - key: TYPEORM_MIGRATIONS
-        value: dist/migrations/*.js
-      - key: TYPEORM_SUBSCRIBERS
-        value: dist/subscribers/*.js
+    autoDeploy: true
+    disk:
+      name: tmp
+      mountPath: /tmp
+      sizeGB: 1
 
   # Redis Service
   - type: redis
     name: bitcoiners-redis
     ipAllowList: []
     plan: free
+    maxmemoryPolicy: noeviction
 
 databases:
   - name: bitcoiners-db
     databaseName: bitcoiners
     user: bitcoiners
     plan: free
+    ipAllowList: []
 
 envVarGroups:
   - name: bitcoiners-env
