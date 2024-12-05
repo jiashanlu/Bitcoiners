@@ -18,11 +18,7 @@ async function startServer() {
     // Connect to PostgreSQL with detailed logging
     const connection = await createConnection({
       type: "postgres",
-      host: process.env.DATABASE_HOST || "db",
-      port: parseInt(process.env.DATABASE_PORT || "5432"),
-      username: process.env.DATABASE_USER || "user",
-      password: process.env.DATABASE_PASSWORD || "password",
-      database: process.env.DATABASE_NAME || "bitcoiners_staging",
+      url: process.env.POSTGRES_URL,
       entities: [Price],
       synchronize: true, // Only in development
       logging: true,
@@ -98,7 +94,7 @@ async function startServer() {
     });
 
     // Start server - bind to all interfaces
-    const PORT = parseInt(process.env.PORT || "4000");
+    const PORT = parseInt(process.env.PORT || "3000");
     app.listen(PORT, "0.0.0.0", () => {
       console.log(`Server running on 0.0.0.0:${PORT}`);
     });
