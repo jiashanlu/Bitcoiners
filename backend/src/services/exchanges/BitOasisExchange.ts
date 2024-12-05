@@ -1,6 +1,6 @@
 import axios from "axios";
 import { ExchangePrice } from "../../types/fees";
-import { AbstractExchange } from "./BaseExchange";
+import { AbstractExchange, TradingPair } from "./BaseExchange";
 import { getDefaultFees, getFeesByVolume } from "../../config/fees";
 
 interface BitOasisResponse {
@@ -19,10 +19,13 @@ export class BitOasisExchange extends AbstractExchange {
     super("BitOasis");
   }
 
-  async fetchPrice(): Promise<ExchangePrice | null> {
+  async fetchPrice(pair: TradingPair): Promise<ExchangePrice | null> {
     try {
+      // Convert our standard pair format to BitOasis format
+      const bitOasisPair = pair === "BTC/AED" ? "BTC-AED" : "USDT-AED";
+
       const response = await axios.get<BitOasisResponse>(
-        `${this.baseUrl}/exchange/ticker/BTC-AED`
+        `${this.baseUrl}/exchange/ticker/${bitOasisPair}`
       );
 
       if (
@@ -42,13 +45,13 @@ export class BitOasisExchange extends AbstractExchange {
         price: price,
         bid: bid,
         ask: ask,
-        pair: "BTC/AED",
+        pair: pair,
         lastUpdated: new Date().toISOString(),
         change24h: response.data.ticker.daily_percentage_change || 0,
         volume24h: response.data.volume_24h || 0,
       });
     } catch (error) {
-      console.error("BitOasis API Error:", error);
+      console.error(`BitOasis API Error for ${pair}:`, error);
       return null;
     }
   }

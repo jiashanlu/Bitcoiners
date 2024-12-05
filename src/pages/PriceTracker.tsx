@@ -1,18 +1,12 @@
 import React, { useState, useEffect, useMemo } from "react";
-import {
-  Box,
-  Container,
-  Heading,
-  Text,
-  Flex,
-  VStack,
-  Image,
-} from "@chakra-ui/react";
+import { Box, Container, Text, Flex, VStack, Select } from "@chakra-ui/react";
 import { PriceCard } from "../components/PriceCard";
 import { VolumeSelector } from "../components/VolumeSelector";
 import { TradeSimulator } from "../components/TradeSimulator";
 import { ExchangePrice } from "../types/exchange";
 import { websocketService } from "../services/websocketService";
+
+type TradingPair = "BTC/AED" | "USDT/AED";
 
 interface PriceTrackerState {
   prices: ExchangePrice[];
@@ -21,6 +15,7 @@ interface PriceTrackerState {
   tradingVolume: number;
   feeType: "maker" | "taker";
   showFeeSpread: boolean;
+  selectedPair: TradingPair;
 }
 
 const initialState: PriceTrackerState = {
@@ -30,6 +25,7 @@ const initialState: PriceTrackerState = {
   tradingVolume: 0,
   feeType: "taker",
   showFeeSpread: true,
+  selectedPair: "BTC/AED",
 };
 
 export const PriceTracker: React.FC = () => {
@@ -39,11 +35,18 @@ export const PriceTracker: React.FC = () => {
     let mounted = true;
 
     const unsubscribe = websocketService.subscribe(
+      state.selectedPair,
       (newPrices: ExchangePrice[]) => {
         if (mounted) {
+          // Filter out Rain prices for USDT/AED
+          const filteredPrices =
+            state.selectedPair === "USDT/AED"
+              ? newPrices.filter((price) => price.exchange !== "Rain")
+              : newPrices;
+
           setState((prev) => ({
             ...prev,
-            prices: newPrices,
+            prices: filteredPrices,
             isLoading: false,
           }));
         }
@@ -54,7 +57,7 @@ export const PriceTracker: React.FC = () => {
       mounted = false;
       unsubscribe();
     };
-  }, []);
+  }, [state.selectedPair]);
 
   const { bestBid, bestAsk } = useMemo(() => {
     if (!state.prices.length) return { bestBid: null, bestAsk: null };
@@ -103,6 +106,15 @@ export const PriceTracker: React.FC = () => {
     }));
   };
 
+  const handlePairChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const newPair = event.target.value as TradingPair;
+    setState((prev) => ({
+      ...prev,
+      selectedPair: newPair,
+      isLoading: true, // Show loading while switching pairs
+    }));
+  };
+
   const toggleFeeSpread = () => {
     setState((prev) => ({
       ...prev,
@@ -113,8 +125,21 @@ export const PriceTracker: React.FC = () => {
   if (state.isLoading) {
     return (
       <Container maxW="container.xl" py={8}>
-        <Box p={8} textAlign="center">
-          <Text fontSize="xl">Loading exchange prices...</Text>
+        <Box
+          p={8}
+          textAlign="center"
+          bg="white"
+          borderRadius="xl"
+          borderWidth="1px"
+          borderColor="#F7931A"
+          _dark={{
+            bg: "#1A1A1A",
+            borderColor: "#F7931A",
+          }}
+        >
+          <Text fontSize="xl" color="#4A5568" _dark={{ color: "#A0AEC0" }}>
+            Loading exchange prices...
+          </Text>
         </Box>
       </Container>
     );
@@ -123,11 +148,22 @@ export const PriceTracker: React.FC = () => {
   if (state.error) {
     return (
       <Container maxW="container.xl" py={8}>
-        <Box p={8} textAlign="center">
-          <Text fontSize="xl" color="red.500">
+        <Box
+          p={8}
+          textAlign="center"
+          bg="white"
+          borderRadius="xl"
+          borderWidth="1px"
+          borderColor="#CE1126"
+          _dark={{
+            bg: "#1A1A1A",
+            borderColor: "#CE1126",
+          }}
+        >
+          <Text fontSize="xl" color="#CE1126">
             Error loading prices. Please try again later.
           </Text>
-          <Text mt={2} color="gray.600">
+          <Text mt={2} color="#4A5568" _dark={{ color: "#A0AEC0" }}>
             {state.error.message}
           </Text>
         </Box>
@@ -135,22 +171,58 @@ export const PriceTracker: React.FC = () => {
     );
   }
 
+  // Create array of exchanges to display, including Rain with "Pair not available" for USDT/AED
+  const displayPrices =
+    state.selectedPair === "USDT/AED"
+      ? [
+          ...state.prices,
+          {
+            exchange: "Rain",
+            price: 0,
+            bid: 0,
+            ask: 0,
+            pair: state.selectedPair,
+            lastUpdated: new Date().toISOString(),
+            change24h: 0,
+            volume24h: 0,
+            fees: { maker: 0, taker: 0 },
+          },
+        ]
+      : state.prices;
+
   return (
-    <Box bg="gray.50" minH="100vh">
+    <Box
+      bg="#F7FAFC"
+      minH="calc(100vh - 73px)"
+      _dark={{
+        bg: "#1A1A1A",
+      }}
+    >
       <Container maxW="container.xl" py={8}>
         <VStack spacing={6} align="stretch">
-          <Flex justify="center" align="center" direction="column" mb={4}>
-            <Heading
-              size="lg"
-              bgGradient="linear(to-r, blue.500, purple.500)"
-              bgClip="text"
-              letterSpacing="tight"
+          <Text
+            fontSize="lg"
+            color="#4A5568"
+            _dark={{ color: "#A0AEC0" }}
+            textAlign="center"
+          >
+            UAE Exchange Price Comparison
+          </Text>
+
+          <Flex justifyContent="center" mb={4}>
+            <Select
+              value={state.selectedPair}
+              onChange={handlePairChange}
+              width="200px"
+              bg="white"
+              _dark={{
+                bg: "#2D3748",
+                color: "white",
+              }}
             >
-              Bitcoiners.ae
-            </Heading>
-            <Text color="gray.600" fontSize="md" mt={2}>
-              UAE Bitcoin Exchange Price Comparison
-            </Text>
+              <option value="BTC/AED">BTC/AED</option>
+              <option value="USDT/AED">USDT/AED</option>
+            </Select>
           </Flex>
 
           <VolumeSelector
@@ -170,20 +242,23 @@ export const PriceTracker: React.FC = () => {
                 height: "8px",
               },
               "&::-webkit-scrollbar-track": {
-                background: "#f1f1f1",
+                background: "#F7FAFC",
                 borderRadius: "4px",
+                _dark: {
+                  background: "#2D3748",
+                },
               },
               "&::-webkit-scrollbar-thumb": {
-                background: "#888",
+                background: "#F7931A",
                 borderRadius: "4px",
                 "&:hover": {
-                  background: "#666",
+                  background: "#E68308",
                 },
               },
             }}
           >
             <Flex gap={4}>
-              {state.prices.map((price: ExchangePrice) => (
+              {displayPrices.map((price: ExchangePrice) => (
                 <Box key={price.exchange} minW="300px">
                   <PriceCard
                     data={price}
@@ -200,7 +275,7 @@ export const PriceTracker: React.FC = () => {
 
           <Box>
             <TradeSimulator
-              prices={state.prices}
+              prices={state.prices} // Use filtered prices without Rain for USDT/AED
               volume={state.tradingVolume}
               feeType={state.feeType}
             />

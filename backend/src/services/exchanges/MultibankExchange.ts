@@ -1,14 +1,21 @@
 import WebSocket from "ws";
 import { ExchangePrice } from "../../types/fees";
-import { AbstractExchange } from "./BaseExchange";
+import { AbstractExchange, TradingPair } from "./BaseExchange";
 import { getDefaultFees, getFeesByVolume } from "../../config/fees";
 
 export class MultibankExchange extends AbstractExchange {
   private ws: WebSocket | null = null;
-  private lastPrice: ExchangePrice | null = null;
+  private lastPrices: Map<TradingPair, ExchangePrice | null> = new Map();
+  private readonly pairMapping: Record<TradingPair, string> = {
+    "BTC/AED": "BTC_AED",
+    "USDT/AED": "USDT_AED",
+  };
 
   constructor() {
     super("Multibank");
+    // Initialize price storage for all pairs
+    this.lastPrices.set("BTC/AED", null);
+    this.lastPrices.set("USDT/AED", null);
     this.connectWebSocket();
   }
 
@@ -23,10 +30,14 @@ export class MultibankExchange extends AbstractExchange {
     this.ws.on("open", () => {
       console.log("Connected to Multibank WebSocket");
       if (this.ws) {
+        // Subscribe to both pairs
+        const events = Object.values(this.pairMapping).map(
+          (pair) => `OB.${pair}`
+        );
         this.ws.send(
           JSON.stringify({
             method: "subscribe",
-            events: ["OB.BTC_AED"],
+            events: events,
           })
         );
       }
@@ -35,21 +46,34 @@ export class MultibankExchange extends AbstractExchange {
     this.ws.on("message", (data: WebSocket.Data) => {
       try {
         const message = JSON.parse(data.toString());
-        if (message.method === "stream" && message.event === "OB.BTC_AED") {
-          const firstBid = message.data.bids[0][0];
-          const lastAsk = message.data.asks[message.data.asks.length - 1][0];
-          const price = (firstBid + lastAsk) / 2;
+        if (message.method === "stream" && message.event?.startsWith("OB.")) {
+          const pairCode = message.event.replace("OB.", "");
+          // Find the corresponding standard pair format
+          const pair = Object.entries(this.pairMapping).find(
+            ([_, value]) => value === pairCode
+          )?.[0] as TradingPair;
 
-          this.lastPrice = this.formatPrice({
-            exchange: this.getName(),
-            bid: firstBid,
-            ask: lastAsk,
-            price: price,
-            pair: "BTC/AED",
-            lastUpdated: new Date().toISOString(),
-            change24h: 0, // Multibank doesn't provide this information
-            volume24h: 0, // Multibank doesn't provide this information
-          });
+          if (pair) {
+            const firstBid = parseFloat(message.data.bids[0][0]);
+            const lastAsk = parseFloat(
+              message.data.asks[message.data.asks.length - 1][0]
+            );
+            const price = (firstBid + lastAsk) / 2;
+
+            this.lastPrices.set(
+              pair,
+              this.formatPrice({
+                exchange: this.getName(),
+                bid: firstBid,
+                ask: lastAsk,
+                price: price,
+                pair: pair,
+                lastUpdated: new Date().toISOString(),
+                change24h: 0, // Multibank doesn't provide this information
+                volume24h: 0, // Multibank doesn't provide this information
+              })
+            );
+          }
         }
       } catch (error) {
         console.error("Error processing Multibank message:", error);
@@ -68,8 +92,8 @@ export class MultibankExchange extends AbstractExchange {
     });
   }
 
-  async fetchPrice(): Promise<ExchangePrice | null> {
-    return this.lastPrice;
+  async fetchPrice(pair: TradingPair): Promise<ExchangePrice | null> {
+    return this.lastPrices.get(pair) || null;
   }
 
   getDefaultFees(): { maker: number; taker: number } {

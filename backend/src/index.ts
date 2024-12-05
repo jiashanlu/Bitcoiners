@@ -6,12 +6,16 @@ import Redis from "ioredis";
 import { Price } from "./models/Price";
 import { PriceService } from "./services/PriceService";
 import WebSocket from "ws";
+import { TradingPair } from "./services/exchanges/BaseExchange";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 let priceService: PriceService;
+
+// Define supported trading pairs
+const SUPPORTED_PAIRS: TradingPair[] = ["BTC/AED", "USDT/AED"];
 
 async function startServer() {
   try {
@@ -61,13 +65,42 @@ async function startServer() {
     wss.on("connection", (ws: WebSocket) => {
       console.log("Client connected");
 
+      // Send initial prices for all pairs when client connects
+      SUPPORTED_PAIRS.forEach(async (pair) => {
+        const cacheKey = `latest_prices_${pair.replace("/", "_")}`;
+        const prices = await redisClient.get(cacheKey);
+        if (prices) {
+          ws.send(
+            JSON.stringify({
+              pair,
+              prices: JSON.parse(prices),
+            })
+          );
+        }
+      });
+
       ws.on("message", async (message: string) => {
         try {
           const data = JSON.parse(message);
+          console.log("Received message:", data);
 
           // Handle volume updates
           if (data.type === "volume_update") {
             await priceService.updateVolume(data.volume);
+          }
+
+          // Handle pair updates
+          if (data.type === "pair_update" && data.pair) {
+            const cacheKey = `latest_prices_${data.pair.replace("/", "_")}`;
+            const prices = await redisClient.get(cacheKey);
+            if (prices) {
+              ws.send(
+                JSON.stringify({
+                  pair: data.pair,
+                  prices: JSON.parse(prices),
+                })
+              );
+            }
           }
         } catch (error) {
           console.error("Error processing WebSocket message:", error);
@@ -79,18 +112,27 @@ async function startServer() {
       });
     });
 
-    // Forward price updates to connected clients using the subscriber connection
-    await redisSub.subscribe("price_updates");
-    console.log("Subscribed to price_updates channel");
+    // Subscribe to Redis cache updates
+    const cacheKeys = SUPPORTED_PAIRS.map(
+      (pair) => `latest_prices_${pair.replace("/", "_")}`
+    );
+    await redisSub.subscribe(...cacheKeys);
+    console.log("Subscribed to cache update channels:", cacheKeys);
 
     redisSub.on("message", (channel: string, message: string) => {
-      if (channel === "price_updates") {
-        wss.clients.forEach((client: WebSocket) => {
-          if (client.readyState === WebSocket.OPEN) {
-            client.send(message);
-          }
-        });
-      }
+      const pair = channel
+        .replace("latest_prices_", "")
+        .replace("_", "/") as TradingPair;
+      wss.clients.forEach((client: WebSocket) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(
+            JSON.stringify({
+              pair,
+              prices: JSON.parse(message),
+            })
+          );
+        }
+      });
     });
 
     // Start server - bind to all interfaces

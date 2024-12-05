@@ -1,21 +1,24 @@
-import { ChakraProvider, extendTheme } from "@chakra-ui/react";
+import React from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Box } from "@chakra-ui/react";
+import { Navigation } from "./components/Navigation";
+import { Home } from "./pages/Home";
 import { PriceTracker } from "./pages/PriceTracker";
-
-const theme = extendTheme({
-  styles: {
-    global: {
-      body: {
-        bg: "gray.50",
-      },
-    },
-  },
-});
+import { UnderConstruction } from "./pages/UnderConstruction";
 
 function App() {
   return (
-    <ChakraProvider theme={theme}>
-      <PriceTracker />
-    </ChakraProvider>
+    <BrowserRouter>
+      <Box minH="100vh">
+        <Navigation />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/price-tracker" element={<PriceTracker />} />
+          <Route path="/bitcoin-uae-map" element={<UnderConstruction />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Box>
+    </BrowserRouter>
   );
 }
 

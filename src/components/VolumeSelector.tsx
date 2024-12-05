@@ -63,15 +63,24 @@ export const VolumeSelector: React.FC<VolumeSelectorProps> = ({
       shadow="sm"
       mb={6}
       borderWidth="1px"
-      borderColor="gray.100"
+      borderColor="#F7931A"
+      _dark={{
+        bg: "#1A1A1A",
+        borderColor: "#F7931A",
+      }}
     >
       <Flex gap={6} wrap={{ base: "wrap", md: "nowrap" }} align="center">
         <FormControl flex="1" minW={{ base: "full", md: "200px" }}>
-          <FormLabel fontSize="sm" color="gray.600">
+          <FormLabel fontSize="sm" color="#4A5568" _dark={{ color: "#A0AEC0" }}>
             30-Day Trading Volume
           </FormLabel>
           <Flex align="center" gap={2}>
-            <Text fontSize="sm" color="gray.600" flex="1">
+            <Text
+              fontSize="sm"
+              color="#4A5568"
+              _dark={{ color: "#A0AEC0" }}
+              flex="1"
+            >
               {formatVolume(volume)} AED
             </Text>
             <Flex direction="column" gap={1}>
@@ -86,6 +95,15 @@ export const VolumeSelector: React.FC<VolumeSelectorProps> = ({
                   minW="24px"
                   h="24px"
                   aria-label="Increase to next tier"
+                  bg="#F7931A"
+                  color="white"
+                  _hover={{ bg: "#E68308" }}
+                  _active={{ bg: "#D67307" }}
+                  _disabled={{
+                    bg: "#4A5568",
+                    opacity: 0.6,
+                    _dark: { bg: "#2D3748" },
+                  }}
                 >
                   ▲
                 </Button>
@@ -101,6 +119,15 @@ export const VolumeSelector: React.FC<VolumeSelectorProps> = ({
                   minW="24px"
                   h="24px"
                   aria-label="Decrease to previous tier"
+                  bg="#F7931A"
+                  color="white"
+                  _hover={{ bg: "#E68308" }}
+                  _active={{ bg: "#D67307" }}
+                  _disabled={{
+                    bg: "#4A5568",
+                    opacity: 0.6,
+                    _dark: { bg: "#2D3748" },
+                  }}
                 >
                   ▼
                 </Button>
@@ -110,7 +137,7 @@ export const VolumeSelector: React.FC<VolumeSelectorProps> = ({
         </FormControl>
 
         <FormControl flex="2" minW={{ base: "full", md: "200px" }}>
-          <FormLabel fontSize="sm" color="gray.600">
+          <FormLabel fontSize="sm" color="#4A5568" _dark={{ color: "#A0AEC0" }}>
             Fee Type
           </FormLabel>
           <Select
@@ -119,6 +146,11 @@ export const VolumeSelector: React.FC<VolumeSelectorProps> = ({
               onFeeTypeChange(e.target.value as "maker" | "taker")
             }
             size="sm"
+            borderColor="#F7931A"
+            _hover={{ borderColor: "#F7931A" }}
+            _focus={{ borderColor: "#F7931A", boxShadow: "0 0 0 1px #F7931A" }}
+            color="#1A1A1A"
+            _dark={{ color: "white" }}
           >
             <option value="maker">Maker - Limit Orders (Lower Fees)</option>
             <option value="taker">Taker - Market Orders (Higher Fees)</option>
@@ -126,14 +158,22 @@ export const VolumeSelector: React.FC<VolumeSelectorProps> = ({
         </FormControl>
 
         <HStack spacing={4} flex="1" justify="flex-end">
-          <Text fontSize="sm" color="gray.600">
+          <Text fontSize="sm" color="#4A5568" _dark={{ color: "#A0AEC0" }}>
             Include Fees in Spread
           </Text>
           <Switch
             isChecked={showFeeSpread}
             onChange={onToggleFeeSpread}
-            colorScheme="purple"
+            colorScheme="orange"
             size="md"
+            sx={{
+              "& .chakra-switch__track[data-checked]": {
+                backgroundColor: "#F7931A",
+              },
+              "& .chakra-switch__thumb": {
+                backgroundColor: "white",
+              },
+            }}
           />
         </HStack>
       </Flex>
