@@ -1,85 +1,116 @@
 import WebSocket from "ws";
+import { AbstractExchange, TradingPair } from "./BaseExchange";
 import { ExchangePrice } from "../../types/fees";
-import { AbstractExchange } from "./BaseExchange";
-import { getDefaultFees, getFeesByVolume } from "../../config/fees";
 
 export class RainExchange extends AbstractExchange {
   private ws: WebSocket | null = null;
-  private lastPrice: ExchangePrice | null = null;
+  private readonly wsUrl = "wss://ws.rain.bh";
+  private latestPrices: Map<TradingPair, ExchangePrice> = new Map();
 
   constructor() {
     super("Rain");
-    this.connectWebSocket();
   }
 
-  private connectWebSocket() {
-    this.ws = new WebSocket("wss://pro-api-bhr.rain.com/websocket");
+  async start(): Promise<void> {
+    try {
+      this.ws = new WebSocket(this.wsUrl);
 
-    this.ws.on("open", () => {
-      console.log("Connected to Rain WebSocket");
-      if (this.ws) {
-        this.ws.send(
-          JSON.stringify({
-            name: "productSummary subscribe",
-            data: "BTC-AED",
-          })
-        );
-      }
-    });
+      this.ws.on("open", () => {
+        console.log("Connected to Rain WebSocket");
+        this.subscribeToTickers();
+      });
 
-    this.ws.on("message", (data: WebSocket.Data) => {
-      try {
-        const message = JSON.parse(data.toString());
-        if (message.name === "productSummary") {
-          const bid = parseFloat(message.data.bid_price.amount);
-          const ask = parseFloat(message.data.ask_price.amount);
-          const price = (bid + ask) / 2;
-
-          this.lastPrice = this.formatPrice({
-            exchange: this.getName(),
-            bid: bid,
-            ask: ask,
-            price: price,
-            pair: "BTC/AED",
-            lastUpdated: new Date().toISOString(),
-            change24h: 0, // Rain doesn't provide this information
-            volume24h: 0, // Rain doesn't provide this information
-          });
+      this.ws.on("message", (data: WebSocket.RawData) => {
+        try {
+          const message = JSON.parse(data.toString());
+          this.handleMessage(message);
+        } catch (error) {
+          console.error("Error parsing Rain message:", error);
         }
-      } catch (error) {
-        console.error("Error processing Rain message:", error);
-      }
-    });
+      });
 
-    this.ws.on("error", (error) => {
-      console.error("Rain WebSocket error:", error);
-    });
+      this.ws.on("close", () => {
+        console.log("Rain WebSocket connection closed");
+        this.reconnect();
+      });
 
-    this.ws.on("close", () => {
-      console.log(
-        "Rain WebSocket connection closed, attempting to reconnect..."
-      );
-      setTimeout(() => this.connectWebSocket(), 5000);
-    });
+      this.ws.on("error", (error: Error) => {
+        console.error("Rain WebSocket error:", error);
+      });
+    } catch (error) {
+      console.error("Failed to connect to Rain:", error);
+      this.reconnect();
+    }
   }
 
-  async fetchPrice(): Promise<ExchangePrice | null> {
-    return this.lastPrice;
+  private subscribeToTickers(): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      const subscribeMessage = {
+        event: "subscribe",
+        pair: ["BTC-AED", "USDT-AED"],
+        channel: "ticker",
+      };
+      this.ws.send(JSON.stringify(subscribeMessage));
+    }
   }
 
-  getDefaultFees(): { maker: number; taker: number } {
-    return getDefaultFees("rain");
+  private handleMessage(message: any): void {
+    if (message.channel === "ticker") {
+      const bid = parseFloat(message.bid);
+      const ask = parseFloat(message.ask);
+      const pair = message.pair.replace("-", "/") as TradingPair;
+
+      const price: ExchangePrice = {
+        exchange: this.getName(),
+        bid,
+        ask,
+        price: (bid + ask) / 2,
+        pair,
+        lastUpdated: new Date().toISOString(),
+        change24h: parseFloat(message.change24h) || 0,
+        volume24h: parseFloat(message.volume24h) || 0,
+        fees: this.getDefaultFees(),
+        isLowestAsk: false,
+        isHighestBid: false,
+        isLowestSpread: false,
+      };
+      this.latestPrices.set(pair, price);
+    }
   }
 
-  getFeesByVolume(volume: number): { maker: number; taker: number } {
-    return getFeesByVolume("rain", volume);
+  private reconnect(): void {
+    setTimeout(() => {
+      console.log("Attempting to reconnect to Rain...");
+      this.start();
+    }, 5000);
   }
 
-  // Clean up WebSocket connection
-  cleanup() {
+  async stop(): Promise<void> {
     if (this.ws) {
       this.ws.close();
       this.ws = null;
     }
+  }
+
+  async fetchPrice(pair: TradingPair): Promise<ExchangePrice | null> {
+    return this.latestPrices.get(pair) || null;
+  }
+
+  getDefaultFees(): { maker: number; taker: number } {
+    return {
+      maker: 0.2,
+      taker: 0.2,
+    };
+  }
+
+  getFeesByVolume(volume: number): { maker: number; taker: number } {
+    // Implement volume-based fee structure
+    if (volume >= 50) {
+      return {
+        maker: 0.15,
+        taker: 0.15,
+      };
+    }
+    return this.getDefaultFees();
   }
 }
