@@ -19,28 +19,41 @@ const SUPPORTED_PAIRS: TradingPair[] = ["BTC/AED", "USDT/AED"];
 
 async function startServer() {
   try {
+    // Parse DATABASE_URL for TypeORM connection
+    const dbUrl = new URL(process.env.DATABASE_URL || "");
+    const useSSL = process.env.NODE_ENV === "production";
+
     // Connect to PostgreSQL with detailed logging
     const connection = await createConnection({
       type: "postgres",
-      host: process.env.DATABASE_HOST || "db",
-      port: parseInt(process.env.DATABASE_PORT || "5432"),
-      username: process.env.DATABASE_USER || "user",
-      password: process.env.DATABASE_PASSWORD || "password",
-      database: process.env.DATABASE_NAME || "bitcoiners_staging",
+      host: dbUrl.hostname,
+      port: parseInt(dbUrl.port),
+      username: dbUrl.username,
+      password: dbUrl.password,
+      database: dbUrl.pathname.substr(1), // Remove leading '/'
       entities: [Price],
       synchronize: true, // Only in development
       logging: true,
       logger: "advanced-console",
+      ssl: useSSL ? { rejectUnauthorized: false } : false,
     });
 
     // Verify database connection
     await connection.query("SELECT NOW()");
     console.log("Database connection established successfully");
 
+    // Parse REDIS_URL for Redis connection
+    const redisUrl = new URL(process.env.REDIS_URL || "");
+
     // Redis connection configuration
     const redisConfig = {
-      host: process.env.REDIS_HOST || "redis",
-      port: parseInt(process.env.REDIS_PORT || "6379"),
+      host: redisUrl.hostname,
+      port: parseInt(redisUrl.port),
+      password: redisUrl.password,
+      tls:
+        process.env.NODE_ENV === "production"
+          ? { rejectUnauthorized: false }
+          : undefined,
       retryStrategy: (times: number) => {
         const delay = Math.min(times * 50, 2000);
         return delay;

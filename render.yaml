@@ -37,6 +37,18 @@ services:
           name: bitcoiners-redis
           type: redis
           property: connectionString
+      - key: TYPEORM_CONNECTION
+        value: postgres
+      - key: TYPEORM_SYNCHRONIZE
+        value: "true"
+      - key: TYPEORM_LOGGING
+        value: "true"
+      - key: TYPEORM_ENTITIES
+        value: dist/models/*.js
+      - key: TYPEORM_MIGRATIONS
+        value: dist/migrations/*.js
+      - key: TYPEORM_SUBSCRIBERS
+        value: dist/subscribers/*.js
 
   # Redis Service
   - type: redis
