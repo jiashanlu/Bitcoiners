@@ -71,12 +71,18 @@ async function startServer() {
     );
     await priceService.start();
 
-    // WebSocket server for client connections - bind to all interfaces
-    const wss = new WebSocket.Server({
-      host: "0.0.0.0",
-      port: 3001,
+    // Start HTTP server first
+    const PORT = parseInt(process.env.PORT || "4000");
+    const server = app.listen(PORT, "0.0.0.0", () => {
+      console.log(`HTTP server running on 0.0.0.0:${PORT}`);
     });
-    console.log("WebSocket server listening on 0.0.0.0:3001");
+
+    // Create WebSocket server attached to the HTTP server
+    const wss = new WebSocket.Server({
+      server,
+      path: "/ws",
+    });
+    console.log("WebSocket server attached to HTTP server");
 
     // Handle WebSocket connections
     wss.on("connection", (ws: WebSocket) => {
@@ -150,12 +156,6 @@ async function startServer() {
           );
         }
       });
-    });
-
-    // Start server - bind to all interfaces
-    const PORT = parseInt(process.env.PORT || "4000");
-    app.listen(PORT, "0.0.0.0", () => {
-      console.log(`Server running on 0.0.0.0:${PORT}`);
     });
   } catch (error) {
     console.error("Failed to start server:", error);
