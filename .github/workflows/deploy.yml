@@ -7,24 +7,11 @@ on:
 
 jobs:
   deploy:
-    name: Deploy to Render
+    name: Deploy
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Deploy to Render
-        uses: johnbeynon/render-deploy-action@v0.0.8
+      - name: Deploy to production
+        uses: JorgeLNJunior/render-deploy@v1.4.3
         with:
-          service-id: ${{ secrets.RENDER_SERVICE_ID }}
-          api-key: ${{ secrets.RENDER_API_KEY }}
-
-      - name: Wait for Deploy
-        uses: bounceapp/render-action@0.6.0
-        with:
-          render-token: ${{ secrets.RENDER_API_KEY }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          service-id: ${{ secrets.RENDER_SERVICE_ID }}
-          retries: 20
-          wait: 16000
-          sleep: 30000
+          api_key: ${{ secrets.RENDER_API_KEY }}
+          service_id: srv-${{ secrets.RENDER_SERVICE_NAME }} # Optional, will deploy to bitcoiners-backend by default

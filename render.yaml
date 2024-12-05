@@ -9,17 +9,7 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-      - key: VITE_API_URL
-        fromService:
-          name: bitcoiners-backend
-          type: web
-          property: url
-      - key: VITE_WS_URL
-        fromService:
-          name: bitcoiners-backend
-          type: web
-          property: url
-          envVarKey: RENDER_EXTERNAL_URL
+      - fromGroup: bitcoiners-env
     routes:
       - type: rewrite
         source: /*
@@ -59,3 +49,11 @@ databases:
     databaseName: bitcoiners
     user: bitcoiners
     plan: free
+
+envVarGroups:
+  - name: bitcoiners-env
+    envVars:
+      - key: VITE_API_URL
+        value: https://bitcoiners-backend.onrender.com
+      - key: VITE_WS_URL
+        value: wss://bitcoiners-backend.onrender.com
