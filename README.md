@@ -1,50 +1,76 @@
-# React + TypeScript + Vite
+# Bitcoiners.ae
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A platform for comparing Bitcoin prices across UAE exchanges.
 
-Currently, two official plugins are available:
+## Development
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Local development uses Docker Compose:
 
-## Expanding the ESLint configuration
+```bash
+# Start development environment
+cd docker
+docker-compose up --build
 
-If you are developing a production application, we recommend updating the configuration to enable type aware lint rules:
-
-- Configure the top-level `parserOptions` property like this:
-
-```js
-export default tseslint.config({
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+# Stop development environment
+docker-compose down
 ```
 
-- Replace `tseslint.configs.recommended` to `tseslint.configs.recommendedTypeChecked` or `tseslint.configs.strictTypeChecked`
-- Optionally add `...tseslint.configs.stylisticTypeChecked`
-- Install [eslint-plugin-react](https://github.com/jsx-eslint/eslint-plugin-react) and update the config:
+This will start:
 
-```js
-// eslint.config.js
-import react from 'eslint-plugin-react'
+- Frontend with hot-reloading (http://localhost:5173)
+- Backend with auto-restart
+- Local PostgreSQL database
+- Local Redis instance
 
-export default tseslint.config({
-  // Set the react version
-  settings: { react: { version: '18.3' } },
-  plugins: {
-    // Add the react plugin
-    react,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended rules
-    ...react.configs.recommended.rules,
-    ...react.configs['jsx-runtime'].rules,
-  },
-})
-```
+## Production Deployment (Render)
+
+The application is deployed on Render using native services:
+
+1. Frontend (Static Site):
+
+   - Builds and serves optimized static files
+   - Handles SPA routing
+   - Available at: https://bitcoiners-frontend.onrender.com
+
+2. Backend (Node.js):
+
+   - Runs as a native Node.js service
+   - Uses TypeScript
+   - Available at: https://bitcoiners-backend.onrender.com
+
+3. Managed Services:
+   - PostgreSQL database
+   - Redis instance
+   - Automatic SSL/TLS
+
+### Deployment Process
+
+1. Push changes to the Git repository
+2. Render automatically deploys:
+   - Builds frontend static files
+   - Compiles backend TypeScript
+   - Updates environment variables
+   - Manages database connections
+
+## Features
+
+- Real-time price updates via WebSocket
+- Fee calculation based on trading volume
+- Best price comparison across exchanges
+- Dark/Light mode support
+- Mobile-responsive design
+
+## Environment Variables
+
+### Frontend
+
+- `VITE_API_URL`: Backend API URL
+- `VITE_WS_URL`: WebSocket URL
+
+### Backend
+
+- `NODE_ENV`: Environment (development/production)
+- `PORT`: HTTP port (default: 4000)
+- `WS_PORT`: WebSocket port (default: 3001)
+- `DATABASE_URL`: PostgreSQL connection string
+- `REDIS_URL`: Redis connection string
