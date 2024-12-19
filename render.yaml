@@ -7,6 +7,7 @@ services:
       npm cache clean --force
       rm -rf node_modules package-lock.json
       npm install
+      npm install -D @types/react-dom@18.2.19 @types/node
       npm run build
     staticPublishPath: ./dist
     headers:
