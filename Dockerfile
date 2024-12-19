@@ -1,13 +1,14 @@
 # Build stage
-FROM node:18.18-alpine as build
+FROM node:18.18 as build
 
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies with legacy peer deps
+# Install dependencies with legacy peer deps and force platform
 RUN npm ci --legacy-peer-deps
+RUN npm install @rollup/rollup-linux-x64-gnu
 
 # Copy source code
 COPY . .
