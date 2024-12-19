@@ -31,37 +31,29 @@ export class OKXExchange extends AbstractExchange {
 
   async fetchPrice(pair: TradingPair): Promise<ExchangePrice | null> {
     try {
+      const okxPair = this.pairMapping[pair];
       const response = await axios.get<OKXResponse>(
-        `${this.baseUrl}/market/tickers`,
+        `${this.baseUrl}/market/ticker`,
         {
           params: {
-            instType: "SPOT",
+            instId: okxPair,
           },
         }
       );
 
-      if (response.data.code !== "0" || !response.data.data) {
+      if (
+        response.data.code !== "0" ||
+        !response.data.data ||
+        !response.data.data[0]
+      ) {
+        console.error(
+          `Invalid response from OKX API for ${pair}:`,
+          response.data
+        );
         throw new Error("Invalid response from OKX API");
       }
 
-      const okxPair = this.pairMapping[pair];
-      console.log(
-        `OKX - Looking for pair ${okxPair} in response data:`,
-        response.data.data
-      );
-
-      const ticker = response.data.data.find(
-        (ticker) => ticker.instId === okxPair
-      );
-
-      if (!ticker) {
-        console.log(
-          `OKX - Available pairs:`,
-          response.data.data.map((t) => t.instId)
-        );
-        throw new Error(`${pair} pair not found in OKX response`);
-      }
-
+      const ticker = response.data.data[0];
       const bid = parseFloat(ticker.bidPx);
       const ask = parseFloat(ticker.askPx);
       const open24h = parseFloat(ticker.open24h);
@@ -75,7 +67,6 @@ export class OKXExchange extends AbstractExchange {
         spread: ask - bid,
         spreadPercentage: ((ask - bid) / bid) * 100,
         price,
-        rawData: ticker,
       });
 
       return this.formatPrice({
