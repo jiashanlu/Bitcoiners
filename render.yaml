@@ -3,7 +3,7 @@ services:
   - type: web
     name: bitcoiners-frontend
     env: static
-    buildCommand: npm ci --include=dev && npm run build
+    buildCommand: npm cache clean --force && npm ci --include=dev && npm i -D @types/node @vitejs/plugin-react @types/react-dom && npm run build
     staticPublishPath: ./dist
     headers:
       - path: /*
