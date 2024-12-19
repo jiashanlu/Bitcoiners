@@ -45,11 +45,20 @@ export class OKXExchange extends AbstractExchange {
       }
 
       const okxPair = this.pairMapping[pair];
+      console.log(
+        `OKX - Looking for pair ${okxPair} in response data:`,
+        response.data.data
+      );
+
       const ticker = response.data.data.find(
         (ticker) => ticker.instId === okxPair
       );
 
       if (!ticker) {
+        console.log(
+          `OKX - Available pairs:`,
+          response.data.data.map((t) => t.instId)
+        );
         throw new Error(`${pair} pair not found in OKX response`);
       }
 
@@ -58,6 +67,16 @@ export class OKXExchange extends AbstractExchange {
       const open24h = parseFloat(ticker.open24h);
       const price = (bid + ask) / 2;
       const change24h = ((price - open24h) / open24h) * 100;
+
+      console.log(`OKX - Found prices for ${pair}:`, {
+        instId: ticker.instId,
+        bid,
+        ask,
+        spread: ask - bid,
+        spreadPercentage: ((ask - bid) / bid) * 100,
+        price,
+        rawData: ticker,
+      });
 
       return this.formatPrice({
         exchange: this.getName(),

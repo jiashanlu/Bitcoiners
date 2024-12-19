@@ -1,120 +1,121 @@
 import WebSocket from "ws";
-import { AbstractExchange, TradingPair } from "./BaseExchange";
 import { ExchangePrice } from "../../types/fees";
+import { AbstractExchange } from "./BaseExchange";
+import { getDefaultFees, getFeesByVolume } from "../../config/fees";
 
 export class MultibankExchange extends AbstractExchange {
   private ws: WebSocket | null = null;
-  private readonly wsUrl = "wss://www.multibank.io/api/v1/ws";
-  private readonly apiKey = process.env.MULTIBANK_API_KEY;
-  private readonly apiSecret = process.env.MULTIBANK_API_SECRET;
-  private latestPrices: Map<TradingPair, ExchangePrice> = new Map();
+  private lastPrices: Map<string, ExchangePrice> = new Map();
+  private pingInterval: NodeJS.Timeout | null = null;
 
   constructor() {
     super("Multibank");
+    this.connectWebSocket();
   }
 
-  async start(): Promise<void> {
-    try {
-      this.ws = new WebSocket(this.wsUrl);
+  private connectWebSocket() {
+    this.ws = new WebSocket("wss://nodes.multibank.io/ws", {
+      headers: {
+        Origin: "https://trade.multibank.io",
+        "User-Agent": "Mozilla/5.0",
+      },
+    });
 
-      this.ws.on("open", () => {
-        console.log("Connected to Multibank WebSocket");
-        this.subscribeToTickers();
-      });
-
-      this.ws.on("message", (data: WebSocket.RawData) => {
-        try {
-          const message = JSON.parse(data.toString());
-          this.handleMessage(message);
-        } catch (error) {
-          console.error("Error parsing Multibank message:", error);
-        }
-      });
-
-      this.ws.on("close", () => {
-        console.log("Multibank WebSocket connection closed");
-        this.reconnect();
-      });
-
-      this.ws.on("error", (error: Error) => {
-        console.error("Multibank WebSocket error:", error);
-      });
-    } catch (error) {
-      console.error("Failed to connect to Multibank:", error);
-      this.reconnect();
-    }
-  }
-
-  private subscribeToTickers(): void {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      const subscribeMessage = {
-        method: "SUBSCRIBE",
-        params: ["btcusdt@ticker", "btcaed@ticker"],
-        id: 1,
-      };
-      this.ws.send(JSON.stringify(subscribeMessage));
-    }
-  }
-
-  private handleMessage(message: any): void {
-    if (message.e === "ticker") {
-      const bid = parseFloat(message.b);
-      const ask = parseFloat(message.a);
-      const symbol = message.s.toUpperCase();
-
-      if (symbol === "BTCAED") {
-        const price: ExchangePrice = {
-          exchange: this.getName(),
-          bid,
-          ask,
-          price: (bid + ask) / 2,
-          pair: "BTC/AED",
-          lastUpdated: new Date().toISOString(),
-          change24h: parseFloat(message.p) || 0,
-          volume24h: parseFloat(message.v) || 0,
-          fees: this.getDefaultFees(),
-          isLowestAsk: false,
-          isHighestBid: false,
-          isLowestSpread: false,
-        };
-        this.latestPrices.set("BTC/AED", price);
+    this.ws.on("open", () => {
+      console.log("Connected to Multibank WebSocket");
+      if (this.ws) {
+        // Subscribe to both BTC and USDT pairs
+        this.ws.send(
+          JSON.stringify({
+            method: "subscribe",
+            events: ["OB.BTC_AED", "OB.USDT_AED"],
+          })
+        );
       }
+    });
+
+    this.ws.on("message", (data: WebSocket.Data) => {
+      try {
+        const message = JSON.parse(data.toString());
+        if (message.method === "stream") {
+          // Handle both BTC and USDT pairs
+          if (
+            message.event === "OB.BTC_AED" ||
+            message.event === "OB.USDT_AED"
+          ) {
+            const firstBid = message.data.bids[0][0];
+            const lastAsk = message.data.asks[message.data.asks.length - 1][0];
+            const price = (firstBid + lastAsk) / 2;
+
+            // Convert event name to pair (e.g., "OB.BTC_AED" -> "BTC/AED")
+            const pair = message.event.replace("OB.", "").replace("_", "/");
+
+            this.lastPrices.set(
+              pair,
+              this.formatPrice({
+                exchange: this.getName(),
+                bid: firstBid,
+                ask: lastAsk,
+                price: price,
+                pair: pair,
+                lastUpdated: new Date().toISOString(),
+                change24h: 0, // Multibank doesn't provide this information
+                volume24h: 0, // Multibank doesn't provide this information
+              })
+            );
+          }
+        }
+      } catch (error) {
+        console.error("Error processing Multibank message:", error);
+      }
+    });
+
+    this.ws.on("error", (error) => {
+      console.error("Multibank WebSocket error:", error);
+    });
+
+    this.ws.on("close", () => {
+      console.log(
+        "Multibank WebSocket connection closed, attempting to reconnect..."
+      );
+      this.clearPingInterval();
+      setTimeout(() => this.connectWebSocket(), 5000);
+    });
+  }
+
+  private setupPingInterval(): void {
+    this.clearPingInterval();
+    this.pingInterval = setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({ type: "ping" }));
+      }
+    }, 30000);
+  }
+
+  private clearPingInterval(): void {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
     }
   }
 
-  private reconnect(): void {
-    setTimeout(() => {
-      console.log("Attempting to reconnect to Multibank...");
-      this.start();
-    }, 5000);
+  async fetchPrice(pair: string): Promise<ExchangePrice | null> {
+    return this.lastPrices.get(pair) || null;
   }
 
-  async stop(): Promise<void> {
+  getDefaultFees(): { maker: number; taker: number } {
+    return getDefaultFees("multibank");
+  }
+
+  getFeesByVolume(volume: number): { maker: number; taker: number } {
+    return getFeesByVolume("multibank", volume);
+  }
+
+  cleanup(): void {
+    this.clearPingInterval();
     if (this.ws) {
       this.ws.close();
       this.ws = null;
     }
-  }
-
-  async fetchPrice(pair: TradingPair): Promise<ExchangePrice | null> {
-    return this.latestPrices.get(pair) || null;
-  }
-
-  getDefaultFees(): { maker: number; taker: number } {
-    return {
-      maker: 0.1,
-      taker: 0.1,
-    };
-  }
-
-  getFeesByVolume(volume: number): { maker: number; taker: number } {
-    // Implement volume-based fee structure
-    if (volume >= 100) {
-      return {
-        maker: 0.08,
-        taker: 0.08,
-      };
-    }
-    return this.getDefaultFees();
   }
 }

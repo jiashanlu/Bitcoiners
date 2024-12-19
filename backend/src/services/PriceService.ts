@@ -36,6 +36,15 @@ export class PriceService {
       const cacheKey = this.getCacheKey(pair);
       await this.redis.set(cacheKey, JSON.stringify([]));
     }
+
+    // Start WebSocket connections for exchanges that support it
+    for (const exchange of this.exchanges) {
+      if ("start" in exchange && typeof exchange.start === "function") {
+        console.log(`Starting WebSocket connection for ${exchange.getName()}`);
+        await exchange.start();
+      }
+    }
+
     this.startUpdateCycle();
   }
 
@@ -148,10 +157,11 @@ export class PriceService {
       clearInterval(this.updateInterval);
     }
 
-    // Cleanup WebSocket connections
+    // Stop WebSocket connections
     for (const exchange of this.exchanges) {
-      if ("cleanup" in exchange && typeof exchange.cleanup === "function") {
-        exchange.cleanup();
+      if ("stop" in exchange && typeof exchange.stop === "function") {
+        console.log(`Stopping WebSocket connection for ${exchange.getName()}`);
+        await exchange.stop();
       }
     }
   }

@@ -7,6 +7,7 @@ import { Price } from "./models/Price";
 import { PriceService } from "./services/PriceService";
 import WebSocket from "ws";
 import { TradingPair } from "./services/exchanges/BaseExchange";
+import http from "http";
 
 const app = express();
 app.use(cors());
@@ -86,41 +87,49 @@ async function startServer() {
     );
     await priceService.start();
 
-    // Start HTTP server first
+    // Start HTTP server
     const PORT = parseInt(process.env.PORT || "4000");
     const server = app.listen(PORT, "0.0.0.0", () => {
       console.log(`HTTP server running on 0.0.0.0:${PORT}`);
     });
 
-    // Create WebSocket server attached to the HTTP server
+    // Create a separate HTTP server for WebSocket
+    const WS_PORT = parseInt(process.env.WS_PORT || "3001");
+    const wsServer = http.createServer();
+
+    // Create WebSocket server on its own port
     const wss = new WebSocket.Server({
-      server,
+      server: wsServer,
       path: "/ws",
     });
-    console.log("WebSocket server attached to HTTP server");
+
+    wsServer.listen(WS_PORT, "0.0.0.0", () => {
+      console.log(`WebSocket server running on 0.0.0.0:${WS_PORT}`);
+    });
 
     // Handle WebSocket connections
     wss.on("connection", (ws: WebSocket) => {
-      console.log("Client connected");
+      console.log("Client connected to WebSocket");
 
       // Send initial prices for all pairs when client connects
       SUPPORTED_PAIRS.forEach(async (pair) => {
         const cacheKey = `latest_prices_${pair.replace("/", "_")}`;
         const prices = await redisClient.get(cacheKey);
+        console.log(`Initial prices for ${pair}:`, prices);
         if (prices) {
-          ws.send(
-            JSON.stringify({
-              pair,
-              prices: JSON.parse(prices),
-            })
-          );
+          const message = JSON.stringify({
+            pair,
+            prices: JSON.parse(prices),
+          });
+          console.log(`Sending initial prices to client:`, message);
+          ws.send(message);
         }
       });
 
       ws.on("message", async (message: string) => {
         try {
           const data = JSON.parse(message);
-          console.log("Received message:", data);
+          console.log("Received WebSocket message:", data);
 
           // Handle volume updates
           if (data.type === "volume_update") {
@@ -131,13 +140,14 @@ async function startServer() {
           if (data.type === "pair_update" && data.pair) {
             const cacheKey = `latest_prices_${data.pair.replace("/", "_")}`;
             const prices = await redisClient.get(cacheKey);
+            console.log(`Prices for ${data.pair}:`, prices);
             if (prices) {
-              ws.send(
-                JSON.stringify({
-                  pair: data.pair,
-                  prices: JSON.parse(prices),
-                })
-              );
+              const message = JSON.stringify({
+                pair: data.pair,
+                prices: JSON.parse(prices),
+              });
+              console.log(`Sending prices update to client:`, message);
+              ws.send(message);
             }
           }
         } catch (error) {
@@ -146,7 +156,7 @@ async function startServer() {
       });
 
       ws.on("close", () => {
-        console.log("Client disconnected");
+        console.log("Client disconnected from WebSocket");
       });
     });
 
@@ -155,20 +165,22 @@ async function startServer() {
       (pair) => `latest_prices_${pair.replace("/", "_")}`
     );
     await redisSub.subscribe(...cacheKeys);
-    console.log("Subscribed to cache update channels:", cacheKeys);
+    console.log("Subscribed to Redis cache channels:", cacheKeys);
 
     redisSub.on("message", (channel: string, message: string) => {
       const pair = channel
         .replace("latest_prices_", "")
         .replace("_", "/") as TradingPair;
+      console.log(`Redis update for ${pair}:`, message);
+
       wss.clients.forEach((client: WebSocket) => {
         if (client.readyState === WebSocket.OPEN) {
-          client.send(
-            JSON.stringify({
-              pair,
-              prices: JSON.parse(message),
-            })
-          );
+          const wsMessage = JSON.stringify({
+            pair,
+            prices: JSON.parse(message),
+          });
+          console.log(`Broadcasting to client:`, wsMessage);
+          client.send(wsMessage);
         }
       });
     });

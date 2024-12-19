@@ -1,36 +1,12 @@
 services:
-  # Frontend Web Service
-  - type: web
-    name: bitcoiners-frontend
-    env: static
-    buildCommand: npm ci && npm run build
-    staticPublishPath: ./dist
-    pullRequestPreviewsEnabled: true
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - fromGroup: bitcoiners-env
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    headers:
-      - path: /*
-        name: X-Frame-Options
-        value: DENY
-      - path: /*
-        name: X-Content-Type-Options
-        value: nosniff
-
-  # Backend API Service
+  # Backend Service (Docker)
   - type: web
     name: bitcoiners-backend
-    env: node
+    env: docker
     region: singapore
-    buildCommand: cd backend && npm ci && npm run build
-    startCommand: cd backend && node dist/index.js
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
     healthCheckPath: /health
-    healthCheckTimeout: 5
     numInstances: 1
     envVars:
       - key: NODE_ENV
@@ -46,19 +22,19 @@ services:
           name: bitcoiners-redis
           type: redis
           property: connectionString
-      - key: TYPEORM_CONNECTION
-        value: postgres
-      - key: TYPEORM_SYNCHRONIZE
-        value: "true"
-      - key: TYPEORM_LOGGING
-        value: "true"
-      - key: TYPEORM_ENTITIES
-        value: dist/models/*.js
-    autoDeploy: true
-    disk:
-      name: tmp
-      mountPath: /tmp
-      sizeGB: 1
+
+  # Frontend Service (Docker)
+  - type: web
+    name: bitcoiners-frontend
+    env: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - fromGroup: bitcoiners-env
+    healthCheckPath: /
+    numInstances: 1
 
   # Redis Service
   - type: redis
@@ -78,6 +54,6 @@ envVarGroups:
   - name: bitcoiners-env
     envVars:
       - key: VITE_API_URL
-        value: https://bitcoiners-backend.onrender.com
+        value: https://bitcoiners-backend.onrender.com/api
       - key: VITE_WS_URL
-        value: wss://bitcoiners-backend.onrender.com
+        value: wss://bitcoiners-backend.onrender.com/ws

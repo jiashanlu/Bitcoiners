@@ -10,16 +10,12 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=4000
-      - DATABASE_HOST=db
-      - DATABASE_PORT=5432
-      - DATABASE_USER=user
-      - DATABASE_PASSWORD=password
-      - DATABASE_NAME=bitcoiners_prod
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - WS_PORT=3001
+      - DATABASE_URL=postgresql://user:password@db:5432/bitcoiners_prod
+      - REDIS_URL=redis://redis:6379
     expose:
       - "4000"
-      - "3001" # WebSocket port
+      - "3001"
     depends_on:
       - db
       - redis
@@ -50,6 +46,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    environment:
+      - VITE_WS_URL=/ws
     ports:
       - "80:80"
       - "443:443"

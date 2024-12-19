@@ -13,28 +13,34 @@ services:
       - "5173:5173"
     environment:
       - NODE_ENV=development
-      - VITE_API_URL=http://192.168.4.59:3000
-      - VITE_WS_URL=ws://192.168.4.59:3001
+      - VITE_WS_URL=ws://localhost:5173/ws
     command: npm run dev -- --host 0.0.0.0
     depends_on:
       - backend
+    networks:
+      - app_network
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: development
     container_name: bitcoiners-backend
     volumes:
       - ./backend:/app
       - /app/node_modules
     ports:
-      - "3000:3000"
-      - "3001:3001"
+      - "4000:4000"
+      - "3001:3001" # Added WebSocket port
     environment:
       - NODE_ENV=development
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - POSTGRES_URL=postgresql://postgres:postgres@postgres:5432/bitcoiners
+      - PORT=4000
+      - WS_PORT=3001 # Added WebSocket port env var
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/bitcoiners
+      - REDIS_URL=redis://redis:6379
       - UPDATE_INTERVAL=10000
     command: npm run dev
     depends_on:
@@ -42,6 +48,8 @@ services:
         condition: service_started
       postgres:
         condition: service_started
+    networks:
+      - app_network
 
   redis:
     image: redis:alpine
@@ -56,6 +64,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    networks:
+      - app_network
 
   postgres:
     image: timescale/timescaledb:latest-pg14
@@ -74,6 +84,12 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge
 
 volumes:
   redis_data:

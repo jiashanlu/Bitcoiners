@@ -7,6 +7,8 @@ export interface BaseExchange {
   getName(): string;
   getDefaultFees(): { maker: number; taker: number };
   getFeesByVolume(volume: number): { maker: number; taker: number };
+  start?(): Promise<void>; // Optional method for WebSocket-based exchanges
+  stop?(): Promise<void>; // Optional method for WebSocket-based exchanges
 }
 
 export abstract class AbstractExchange implements BaseExchange {
@@ -20,6 +22,10 @@ export abstract class AbstractExchange implements BaseExchange {
 
   abstract getDefaultFees(): { maker: number; taker: number };
   abstract getFeesByVolume(volume: number): { maker: number; taker: number };
+
+  // Optional WebSocket lifecycle methods
+  async start?(): Promise<void> {}
+  async stop?(): Promise<void> {}
 
   protected formatPrice(
     rawPrice: Omit<ExchangePrice, "fees">,
