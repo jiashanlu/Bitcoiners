@@ -21,7 +21,6 @@ import { ExchangePrice } from "../types/exchange";
 
 interface TradeSimulatorProps {
   prices: ExchangePrice[];
-  volume: number;
   feeType: "maker" | "taker";
 }
 
@@ -42,7 +41,6 @@ interface BestTrade {
 
 export const TradeSimulator: React.FC<TradeSimulatorProps> = ({
   prices,
-  volume,
   feeType,
 }) => {
   const [amount, setAmount] = useState<number>(1);

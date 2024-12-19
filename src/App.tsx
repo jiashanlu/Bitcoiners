@@ -1,4 +1,3 @@
-import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Box } from "@chakra-ui/react";
 import { Navigation } from "./components/Navigation";

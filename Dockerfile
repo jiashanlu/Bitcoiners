@@ -6,14 +6,14 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies with verbose logging
-RUN npm ci --verbose
+# Install dependencies with legacy peer deps to handle potential React version mismatches
+RUN npm ci --legacy-peer-deps
 
 # Copy source code
 COPY . .
 
-# Build the app with verbose logging
-RUN npm run build || (echo "Build failed!" && npm run build --verbose && exit 1)
+# Build the app with detailed error output
+RUN npm run build || (echo "Build failed with detailed error:" && npm run build --verbose && exit 1)
 
 # Production stage
 FROM nginx:alpine

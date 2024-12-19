@@ -9,7 +9,6 @@ interface WebSocketMessage {
 
 class WebSocketService {
   private ws: WebSocket | null = null;
-  private reconnectTimeout: number = 3000;
   private maxReconnectAttempts: number = 5;
   private reconnectAttempts: number = 0;
   private callbacks: Map<TradingPair, Set<PriceUpdateCallback>> = new Map();
