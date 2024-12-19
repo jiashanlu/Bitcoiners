@@ -1,18 +1,13 @@
 services:
-  # Backend Service (Docker)
+  # Main Docker Compose Service
   - type: web
-    name: bitcoiners-backend
+    name: bitcoiners
     env: docker
     region: singapore
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
-    healthCheckPath: /health
-    numInstances: 1
+    dockerCommand: docker-compose -f docker-compose.prod.yml up
     envVars:
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 4000
       - key: DATABASE_URL
         fromDatabase:
           name: bitcoiners-db
@@ -22,19 +17,6 @@ services:
           name: bitcoiners-redis
           type: redis
           property: connectionString
-
-  # Frontend Service (Docker)
-  - type: web
-    name: bitcoiners-frontend
-    env: docker
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - fromGroup: bitcoiners-env
-    healthCheckPath: /
-    numInstances: 1
 
   # Redis Service
   - type: redis
@@ -49,11 +31,3 @@ databases:
     user: bitcoiners
     plan: free
     ipAllowList: []
-
-envVarGroups:
-  - name: bitcoiners-env
-    envVars:
-      - key: VITE_API_URL
-        value: https://bitcoiners-backend.onrender.com/api
-      - key: VITE_WS_URL
-        value: wss://bitcoiners-backend.onrender.com/ws
