@@ -1,41 +1,50 @@
 # Build stage
-FROM node:18.18 as build
+FROM node:18.18 as builder
 
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies with legacy peer deps and force platform
+# Install dependencies with legacy peer deps
 RUN npm ci --legacy-peer-deps
-RUN npm install @rollup/rollup-linux-x64-gnu
 
 # Copy source code
 COPY . .
 
-# Build the app with detailed error output
-RUN npm run build || (echo "Build failed with details:" && npm run build --verbose && exit 1)
+# Build TypeScript with detailed error output
+RUN npm run build || (echo "Build failed with detailed error:" && npm run build --verbose && exit 1)
+
+# Development stage
+FROM node:18.18 as development
+
+WORKDIR /app
+
+# Copy package files and install dependencies
+COPY package*.json ./
+RUN npm ci --legacy-peer-deps
+
+# Copy source code
+COPY . .
+
+# Install development dependencies
+RUN npm install ts-node-dev --save-dev
 
 # Production stage
-FROM nginx:alpine
+FROM node:18.18-slim as production
 
-# Install envsubst
-RUN apk add --no-cache gettext
+WORKDIR /app
 
-# Copy built assets from build stage
-COPY --from=build /app/dist /usr/share/nginx/html
+# Copy package files
+COPY package*.json ./
 
-# Copy nginx configurations
-COPY nginx.prod.conf /etc/nginx/templates/default.conf.template
+# Install production dependencies only with legacy peer deps
+RUN npm ci --only=production --legacy-peer-deps
 
-# Script to replace environment variables and start nginx
-RUN echo '#!/bin/sh\n\n\
-: ${BACKEND_URL:=http://localhost:4000}\n\
-: ${BACKEND_WS_URL:=ws://localhost:3001}\n\n\
-envsubst "\${BACKEND_URL} \${BACKEND_WS_URL}" < /etc/nginx/templates/default.conf.template > /etc/nginx/conf.d/default.conf\n\n\
-exec "$@"' > /docker-entrypoint.sh && chmod +x /docker-entrypoint.sh
+# Copy built files from builder
+COPY --from=builder /app/dist ./dist
 
-EXPOSE 80
+EXPOSE 4000 3001
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["nginx", "-g", "daemon off;"]
+# Use environment variable to determine startup command
+CMD ["sh", "-c", "if [ \"$NODE_ENV\" = \"production\" ]; then node dist/index.js; else npm run dev; fi"]
