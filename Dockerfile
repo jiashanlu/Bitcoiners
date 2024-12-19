@@ -1,19 +1,19 @@
 # Build stage
-FROM node:18-alpine as build
+FROM node:18.17-alpine as build
 
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci
+# Install dependencies with verbose logging
+RUN npm ci --verbose
 
 # Copy source code
 COPY . .
 
-# Build the app
-RUN npm run build
+# Build the app with verbose logging
+RUN npm run build || (echo "Build failed!" && npm run build --verbose && exit 1)
 
 # Production stage
 FROM nginx:alpine
@@ -24,9 +24,6 @@ COPY --from=build /app/dist /usr/share/nginx/html
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Create directory for SSL certificates
-RUN mkdir -p /etc/nginx/ssl
-
-EXPOSE 80 443
+EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
