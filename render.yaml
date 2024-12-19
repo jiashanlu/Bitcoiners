@@ -1,5 +1,5 @@
 services:
-  # Frontend Service (Web)
+  # Frontend Service (Static Site)
   - type: web
     name: bitcoiners-frontend
     env: static
@@ -21,14 +21,18 @@ services:
       - key: VITE_WS_URL
         value: wss://bitcoiners-backend.onrender.com/ws
 
-  # Backend Service (Web)
+  # Backend Service (Node.js)
   - type: web
     name: bitcoiners-backend
     env: node
     region: singapore
-    buildCommand: cd backend && npm ci && npm run build
+    buildCommand: |
+      cd backend
+      npm ci
+      npm run build
     startCommand: cd backend && node dist/index.js
     healthCheckPath: /health
+    plan: starter
     envVars:
       - key: NODE_ENV
         value: production
