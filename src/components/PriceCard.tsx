@@ -1,8 +1,6 @@
-import React from "react";
 import { Box, Flex, Text, Badge, Tooltip } from "@chakra-ui/react";
-import { ExchangePrice, TradingPair } from "../types/exchange";
+import { ExchangePrice } from "../types/exchange";
 import {
-  formatVolume,
   getExchangeTier,
   getNextTierInfo,
   formatPercentage,

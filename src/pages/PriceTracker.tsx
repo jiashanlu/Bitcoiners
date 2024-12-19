@@ -274,11 +274,7 @@ export const PriceTracker: React.FC = () => {
           </Box>
 
           <Box>
-            <TradeSimulator
-              prices={state.prices} // Use filtered prices without Rain for USDT/AED
-              volume={state.tradingVolume}
-              feeType={state.feeType}
-            />
+            <TradeSimulator prices={state.prices} feeType={state.feeType} />
           </Box>
         </VStack>
       </Container>

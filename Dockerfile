@@ -1,12 +1,12 @@
 # Build stage
-FROM node:18.17-alpine as build
+FROM node:18.18-alpine as build
 
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies with legacy peer deps to handle potential React version mismatches
+# Install dependencies with legacy peer deps
 RUN npm ci --legacy-peer-deps
 
 # Copy source code

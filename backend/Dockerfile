@@ -1,5 +1,5 @@
 # Build stage
-FROM node:18.17-alpine as builder
+FROM node:18.18-alpine as builder
 
 WORKDIR /app
 
@@ -16,7 +16,7 @@ COPY . .
 RUN npm run build || (echo "Build failed with detailed error:" && npm run build --verbose && exit 1)
 
 # Development stage
-FROM node:18.17-alpine as development
+FROM node:18.18-alpine as development
 
 WORKDIR /app
 
@@ -31,7 +31,7 @@ COPY . .
 RUN npm install ts-node-dev --save-dev
 
 # Production stage
-FROM node:18.17-alpine as production
+FROM node:18.18-alpine as production
 
 WORKDIR /app
 

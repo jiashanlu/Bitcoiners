@@ -2,7 +2,6 @@ import { exchangeFees } from "../../backend/src/config/fees";
 import {
   OKXFeeTier,
   MultibankFeeTier,
-  BitOasisFeeTier,
   FeeTier,
   TierInfo,
 } from "../../backend/src/types/fees";
