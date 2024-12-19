@@ -14,7 +14,7 @@ RUN npm install @rollup/rollup-linux-x64-gnu
 COPY . .
 
 # Build the app with detailed error output
-RUN npm run build || (echo "Build failed with detailed error:" && npm run build --verbose && exit 1)
+RUN npm run build || (echo "Build failed with details:" && npm run build --verbose && exit 1)
 
 # Production stage
 FROM nginx:alpine
