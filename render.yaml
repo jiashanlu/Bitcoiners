@@ -1,13 +1,35 @@
 services:
-  # Main Docker Compose Service
+  # Frontend Service
   - type: web
-    name: bitcoiners
+    name: bitcoiners-frontend
     env: docker
     region: singapore
-    dockerCommand: docker-compose -f docker-compose.prod.yml up
+    dockerfilePath: Dockerfile
+    dockerContext: .
+    healthCheckPath: /
     envVars:
       - key: NODE_ENV
         value: production
+      - key: VITE_API_URL
+        value: https://bitcoiners-backend.onrender.com/api
+      - key: VITE_WS_URL
+        value: wss://bitcoiners-backend.onrender.com/ws
+
+  # Backend Service
+  - type: web
+    name: bitcoiners-backend
+    env: docker
+    region: singapore
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: WS_PORT
+        value: 3001
       - key: DATABASE_URL
         fromDatabase:
           name: bitcoiners-db
