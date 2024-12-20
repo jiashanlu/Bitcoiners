@@ -33,30 +33,67 @@ app.get("/", (req, res) => {
   });
 });
 
+async function connectWithRetry(maxRetries = 5, delay = 5000) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`Database connection attempt ${attempt}/${maxRetries}`);
+
+      // Parse DATABASE_URL for TypeORM connection
+      const dbUrl = new URL(process.env.DATABASE_URL || "");
+      const useSSL = process.env.NODE_ENV === "production";
+
+      // Connect to PostgreSQL with detailed logging
+      const connection = await createConnection({
+        type: "postgres",
+        host: dbUrl.hostname,
+        port: parseInt(dbUrl.port),
+        username: dbUrl.username,
+        password: dbUrl.password,
+        database: dbUrl.pathname.substr(1), // Remove leading '/'
+        entities: [Price],
+        synchronize: true, // Only in development
+        logging: true,
+        logger: "advanced-console",
+        ssl: useSSL ? { rejectUnauthorized: false } : false,
+        connectTimeoutMS: 10000, // 10 second timeout
+        extra: {
+          max: 20, // Maximum number of clients in the pool
+          connectionTimeoutMillis: 10000,
+          keepAlive: true,
+        },
+      });
+
+      // Verify database connection
+      await connection.query("SELECT NOW()");
+      console.log("Database connection established successfully");
+      return connection;
+    } catch (error) {
+      console.error(`Database connection attempt ${attempt} failed:`, error);
+      if (attempt === maxRetries) {
+        throw new Error(
+          `Failed to connect to database after ${maxRetries} attempts`
+        );
+      }
+      console.log(`Waiting ${delay / 1000} seconds before next attempt...`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw new Error("Failed to connect to database"); // Fallback error
+}
+
 async function startServer() {
   try {
-    // Parse DATABASE_URL for TypeORM connection
-    const dbUrl = new URL(process.env.DATABASE_URL || "");
-    const useSSL = process.env.NODE_ENV === "production";
+    // Initial delay to ensure services are ready
+    const initialDelay = process.env.NODE_ENV === "production" ? 10000 : 0;
+    if (initialDelay > 0) {
+      console.log(
+        `Waiting ${initialDelay / 1000} seconds for services to be ready...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, initialDelay));
+    }
 
-    // Connect to PostgreSQL with detailed logging
-    const connection = await createConnection({
-      type: "postgres",
-      host: dbUrl.hostname,
-      port: parseInt(dbUrl.port),
-      username: dbUrl.username,
-      password: dbUrl.password,
-      database: dbUrl.pathname.substr(1), // Remove leading '/'
-      entities: [Price],
-      synchronize: true, // Only in development
-      logging: true,
-      logger: "advanced-console",
-      ssl: useSSL ? { rejectUnauthorized: false } : false,
-    });
-
-    // Verify database connection
-    await connection.query("SELECT NOW()");
-    console.log("Database connection established successfully");
+    // Connect to database with retry logic
+    const connection = await connectWithRetry();
 
     // Parse REDIS_URL for Redis connection
     const redisUrl = new URL(process.env.REDIS_URL || "");

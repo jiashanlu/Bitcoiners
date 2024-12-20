@@ -68,3 +68,5 @@ databases:
     user: bitcoiners
     plan: free
     ipAllowList: []
+    region: singapore # Match backend region
+    postgresMajorVersion: 15 # Specify PostgreSQL version
