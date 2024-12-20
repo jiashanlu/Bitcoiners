@@ -67,4 +67,3 @@ databases:
     plan: free
     ipAllowList: []
     region: singapore
-    postgresMajorVersion: 15
