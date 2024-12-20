@@ -38,6 +38,11 @@ services:
     dependsOn:
       - bitcoiners-db
       - bitcoiners-redis
+    autoDeploy: false # Disable auto-deploy to ensure manual control
+    disk:
+      name: tmp
+      mountPath: /tmp
+      sizeGB: 1
     envVars:
       - key: NODE_ENV
         value: production

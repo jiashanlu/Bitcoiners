@@ -1,7 +1,7 @@
 import "reflect-metadata";
 import express from "express";
 import cors from "cors";
-import { createConnection } from "typeorm";
+import { createConnection, DataSource, LoggerOptions } from "typeorm";
 import Redis from "ioredis";
 import { Price } from "./models/Price";
 import { PriceService } from "./services/PriceService";
@@ -33,35 +33,54 @@ app.get("/", (req, res) => {
   });
 });
 
+function getRedactedUrl(url: string): string {
+  try {
+    const parsedUrl = new URL(url);
+    return `${parsedUrl.protocol}//${parsedUrl.username}:****@${parsedUrl.hostname}:${parsedUrl.port}${parsedUrl.pathname}`;
+  } catch (error) {
+    return "Invalid URL";
+  }
+}
+
 async function connectWithRetry(maxRetries = 5, delay = 5000) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       console.log(`Database connection attempt ${attempt}/${maxRetries}`);
 
-      // Parse DATABASE_URL for TypeORM connection
-      const dbUrl = new URL(process.env.DATABASE_URL || "");
+      const databaseUrl = process.env.DATABASE_URL || "";
+      console.log("Attempting to connect to:", getRedactedUrl(databaseUrl));
+
+      const dbUrl = new URL(databaseUrl);
       const useSSL = process.env.NODE_ENV === "production";
 
-      // Connect to PostgreSQL with detailed logging
-      const connection = await createConnection({
-        type: "postgres",
+      // Connection options based on environment
+      const connectionOptions = {
+        type: "postgres" as const,
         host: dbUrl.hostname,
         port: parseInt(dbUrl.port),
         username: dbUrl.username,
         password: dbUrl.password,
-        database: dbUrl.pathname.substr(1), // Remove leading '/'
+        database: dbUrl.pathname.substr(1),
         entities: [Price],
-        synchronize: true, // Only in development
-        logging: true,
-        logger: "advanced-console",
+        synchronize: process.env.NODE_ENV !== "production", // Only in development
+        logging: process.env.NODE_ENV !== "production",
         ssl: useSSL ? { rejectUnauthorized: false } : false,
-        connectTimeoutMS: 10000, // 10 second timeout
+        connectTimeoutMS: 10000,
+        poolSize: 20,
         extra: {
-          max: 20, // Maximum number of clients in the pool
           connectionTimeoutMillis: 10000,
           keepAlive: true,
         },
+      } as Parameters<typeof createConnection>[0];
+
+      console.log("Connection options:", {
+        ...connectionOptions,
+        password: "****",
+        extra: connectionOptions.extra,
       });
+
+      // Connect to PostgreSQL
+      const connection = await createConnection(connectionOptions);
 
       // Verify database connection
       await connection.query("SELECT NOW()");
