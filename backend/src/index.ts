@@ -75,7 +75,7 @@ function getRedactedUrl(url: string): string {
   }
 }
 
-async function connectWithRetry(maxRetries = 10, delay = 5000) {
+async function connectWithRetry(maxRetries = 10, delay = 10000) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       console.log(`Database connection attempt ${attempt}/${maxRetries}`);
@@ -90,12 +90,16 @@ async function connectWithRetry(maxRetries = 10, delay = 5000) {
       const dbUrl = new URL(databaseUrl);
       const useSSL = process.env.NODE_ENV === "production";
 
+      // Parse port with fallback to default PostgreSQL port
+      const port = dbUrl.port ? parseInt(dbUrl.port) : 5432;
+      console.log(`Database port: ${port}`);
+
       // Connection options based on environment
       const connectionOptions = {
         name: `connection_${attempt}`, // Unique connection name for each attempt
         type: "postgres" as const,
         host: dbUrl.hostname,
-        port: parseInt(dbUrl.port),
+        port: port,
         username: dbUrl.username,
         password: dbUrl.password,
         database: dbUrl.pathname.substr(1),
@@ -137,14 +141,24 @@ async function connectWithRetry(maxRetries = 10, delay = 5000) {
       console.log("Database connection established successfully");
       return connection;
     } catch (error) {
-      console.error(`Database connection attempt ${attempt} failed:`, error);
+      console.error(`Database connection attempt ${attempt} failed:`, {
+        error: error.message,
+        code: (error as any).code,
+        errno: (error as any).errno,
+        syscall: (error as any).syscall,
+        hostname: (error as any).hostname,
+      });
       if (attempt === maxRetries) {
         throw new Error(
           `Failed to connect to database after ${maxRetries} attempts`
         );
       }
-      console.log(`Waiting ${delay / 1000} seconds before next attempt...`);
-      await new Promise((resolve) => setTimeout(resolve, delay));
+      // Add exponential backoff
+      const currentDelay = Math.min(delay * Math.pow(2, attempt - 1), 30000);
+      console.log(
+        `Waiting ${currentDelay / 1000} seconds before next attempt...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, currentDelay));
     }
   }
   throw new Error("Failed to connect to database"); // Fallback error
@@ -181,19 +195,27 @@ async function startServer() {
     // Parse REDIS_URL for Redis connection
     const redisUrl = new URL(process.env.REDIS_URL || "");
 
+    // Parse Redis port with fallback
+    const redisPort = redisUrl.port ? parseInt(redisUrl.port) : 6379;
+    console.log(`Redis port: ${redisPort}`);
+
     // Redis connection configuration
     const redisConfig = {
       host: redisUrl.hostname,
-      port: parseInt(redisUrl.port),
+      port: redisPort,
       password: redisUrl.password,
       tls:
         process.env.NODE_ENV === "production"
           ? { rejectUnauthorized: false }
           : undefined,
       retryStrategy: (times: number) => {
-        const delay = Math.min(times * 50, 2000);
+        const delay = Math.min(times * 1000, 30000); // Exponential up to 30s
+        console.log(`Redis retry attempt ${times}, waiting ${delay}ms`);
         return delay;
       },
+      maxRetriesPerRequest: 20,
+      connectTimeout: 10000,
+      enableReadyCheck: true,
       reconnectOnError: (err: Error) => {
         const targetError = "READONLY";
         if (err.message.includes(targetError)) {

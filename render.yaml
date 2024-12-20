@@ -32,6 +32,7 @@ services:
     healthCheckPath: /health
     plan: starter
     autoDeploy: false
+    waitForHealthCheck: true
     disk:
       name: tmp
       mountPath: /tmp
