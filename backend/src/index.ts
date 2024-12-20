@@ -8,6 +8,39 @@ import { PriceService } from "./services/PriceService";
 import WebSocket from "ws";
 import { TradingPair } from "./services/exchanges/BaseExchange";
 import http from "http";
+import dns from "dns";
+import { promisify } from "util";
+
+const resolveDns = promisify(dns.lookup);
+
+async function resolveHostWithRetry(
+  hostname: string,
+  maxRetries = 10,
+  delay = 5000
+): Promise<string> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(
+        `DNS resolution attempt ${attempt}/${maxRetries} for ${hostname}`
+      );
+      const { address } = await resolveDns(hostname);
+      console.log(`Successfully resolved ${hostname} to ${address}`);
+      return address;
+    } catch (error) {
+      console.error(`DNS resolution attempt ${attempt} failed:`, error);
+      if (attempt === maxRetries) {
+        throw new Error(
+          `Failed to resolve hostname ${hostname} after ${maxRetries} attempts`
+        );
+      }
+      console.log(
+        `Waiting ${delay / 1000} seconds before next DNS resolution attempt...`
+      );
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  throw new Error(`Failed to resolve hostname ${hostname}`);
+}
 
 const app = express();
 app.use(cors());
@@ -42,7 +75,7 @@ function getRedactedUrl(url: string): string {
   }
 }
 
-async function connectWithRetry(maxRetries = 5, delay = 5000) {
+async function connectWithRetry(maxRetries = 10, delay = 5000) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       console.log(`Database connection attempt ${attempt}/${maxRetries}`);
@@ -50,11 +83,26 @@ async function connectWithRetry(maxRetries = 5, delay = 5000) {
       const databaseUrl = process.env.DATABASE_URL || "";
       console.log("Attempting to connect to:", getRedactedUrl(databaseUrl));
 
+      if (!databaseUrl) {
+        throw new Error("DATABASE_URL environment variable is not set");
+      }
+
       const dbUrl = new URL(databaseUrl);
       const useSSL = process.env.NODE_ENV === "production";
 
+      // Resolve database hostname first
+      if (process.env.NODE_ENV === "production") {
+        console.log(
+          `Attempting to resolve database hostname: ${dbUrl.hostname}`
+        );
+        const resolvedHost = await resolveHostWithRetry(dbUrl.hostname);
+        console.log(`Using resolved database host: ${resolvedHost}`);
+        dbUrl.hostname = resolvedHost;
+      }
+
       // Connection options based on environment
       const connectionOptions = {
+        name: `connection_${attempt}`, // Unique connection name for each attempt
         type: "postgres" as const,
         host: dbUrl.hostname,
         port: parseInt(dbUrl.port),
@@ -117,9 +165,17 @@ async function startServer() {
     // Parse REDIS_URL for Redis connection
     const redisUrl = new URL(process.env.REDIS_URL || "");
 
+    // Resolve Redis hostname in production
+    let redisHost = redisUrl.hostname;
+    if (process.env.NODE_ENV === "production") {
+      console.log(`Attempting to resolve Redis hostname: ${redisHost}`);
+      redisHost = await resolveHostWithRetry(redisHost);
+      console.log(`Using resolved Redis host: ${redisHost}`);
+    }
+
     // Redis connection configuration
     const redisConfig = {
-      host: redisUrl.hostname,
+      host: redisHost,
       port: parseInt(redisUrl.port),
       password: redisUrl.password,
       tls:
@@ -129,6 +185,13 @@ async function startServer() {
       retryStrategy: (times: number) => {
         const delay = Math.min(times * 50, 2000);
         return delay;
+      },
+      reconnectOnError: (err: Error) => {
+        const targetError = "READONLY";
+        if (err.message.includes(targetError)) {
+          return true;
+        }
+        return false;
       },
     };
 

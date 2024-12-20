@@ -1,5 +1,4 @@
 services:
-  # Frontend Service (Static Site)
   - type: web
     name: bitcoiners-frontend
     env: static
@@ -22,8 +21,6 @@ services:
         value: https://bitcoiners-backend.onrender.com/api
       - key: VITE_WS_URL
         value: wss://bitcoiners-backend.onrender.com/ws
-
-  # Backend Service (Node.js)
   - type: web
     name: bitcoiners-backend
     env: node
@@ -38,7 +35,7 @@ services:
     dependsOn:
       - bitcoiners-db
       - bitcoiners-redis
-    autoDeploy: false # Disable auto-deploy to ensure manual control
+    autoDeploy: false
     disk:
       name: tmp
       mountPath: /tmp
@@ -59,19 +56,16 @@ services:
           name: bitcoiners-redis
           type: redis
           property: connectionString
-
-  # Redis Service
   - type: redis
     name: bitcoiners-redis
     ipAllowList: []
     plan: free
     maxmemoryPolicy: noeviction
-
 databases:
   - name: bitcoiners-db
     databaseName: bitcoiners
     user: bitcoiners
     plan: free
     ipAllowList: []
-    region: singapore # Match backend region
-    postgresMajorVersion: 15 # Specify PostgreSQL version
+    region: singapore
+    postgresMajorVersion: 15
