@@ -81,13 +81,43 @@ async function connectWithRetry(maxRetries = 10, delay = 10000) {
       console.log(`Database connection attempt ${attempt}/${maxRetries}`);
 
       const databaseUrl = process.env.DATABASE_URL || "";
-      console.log("Attempting to connect to:", getRedactedUrl(databaseUrl));
-
       if (!databaseUrl) {
         throw new Error("DATABASE_URL environment variable is not set");
       }
 
+      // Validate database URL format
+      if (
+        !databaseUrl.startsWith("postgres://") &&
+        !databaseUrl.startsWith("postgresql://")
+      ) {
+        throw new Error(
+          "Invalid DATABASE_URL format. Must start with postgres:// or postgresql://"
+        );
+      }
+
+      console.log("Attempting to connect to:", getRedactedUrl(databaseUrl));
+
       const dbUrl = new URL(databaseUrl);
+
+      // Validate required database URL components
+      if (
+        !dbUrl.hostname ||
+        !dbUrl.username ||
+        !dbUrl.password ||
+        !dbUrl.pathname
+      ) {
+        throw new Error(
+          "DATABASE_URL is missing required components (hostname, username, password, or database name)"
+        );
+      }
+      console.log("Database connection details:", {
+        host: dbUrl.hostname,
+        port: dbUrl.port || "5432 (default)",
+        database: dbUrl.pathname.substr(1),
+        username: dbUrl.username,
+        ssl: process.env.NODE_ENV === "production",
+      });
+
       const useSSL = process.env.NODE_ENV === "production";
 
       // Parse port with fallback to default PostgreSQL port
@@ -107,10 +137,10 @@ async function connectWithRetry(maxRetries = 10, delay = 10000) {
         synchronize: process.env.NODE_ENV !== "production", // Only in development
         logging: process.env.NODE_ENV !== "production",
         ssl: useSSL ? { rejectUnauthorized: false } : false,
-        connectTimeoutMS: 10000,
+        connectTimeoutMS: 30000, // Increased timeout for potential DNS delays
         poolSize: 20,
         extra: {
-          connectionTimeoutMillis: 10000,
+          connectionTimeoutMillis: 30000, // Increased timeout
           keepAlive: true,
           // Add application_name for better identification in pg_stat_activity
           application_name: "bitcoiners-backend",
@@ -192,8 +222,26 @@ async function startServer() {
     // Connect to database with retry logic
     const connection = await connectWithRetry();
 
-    // Parse REDIS_URL for Redis connection
-    const redisUrl = new URL(process.env.REDIS_URL || "");
+    // Validate and parse REDIS_URL
+    const redisUrlStr = process.env.REDIS_URL || "";
+    if (!redisUrlStr) {
+      throw new Error("REDIS_URL environment variable is not set");
+    }
+    if (
+      !redisUrlStr.startsWith("redis://") &&
+      !redisUrlStr.startsWith("rediss://")
+    ) {
+      throw new Error(
+        "Invalid REDIS_URL format. Must start with redis:// or rediss://"
+      );
+    }
+
+    const redisUrl = new URL(redisUrlStr);
+    if (!redisUrl.hostname || !redisUrl.password) {
+      throw new Error(
+        "REDIS_URL is missing required components (hostname or password)"
+      );
+    }
 
     // Parse Redis port with fallback
     const redisPort = redisUrl.port ? parseInt(redisUrl.port) : 6379;
@@ -214,7 +262,7 @@ async function startServer() {
         return delay;
       },
       maxRetriesPerRequest: 20,
-      connectTimeout: 10000,
+      connectTimeout: 30000, // Increased timeout
       enableReadyCheck: true,
       reconnectOnError: (err: Error) => {
         const targetError = "READONLY";
