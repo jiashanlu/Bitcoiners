@@ -33,8 +33,6 @@ services:
     healthCheckPath: /health
     plan: starter
     autoDeploy: false
-    waitForHealthCheck: true
-    minInstances: 1
     disk:
       name: tmp
       mountPath: /tmp
@@ -55,9 +53,6 @@ services:
           name: bitcoiners-redis
           type: redis
           property: connectionString
-    dependencies:
-      - name: bitcoiners-redis
-      - name: bitcoiners-db
 
   - type: redis
     name: bitcoiners-redis
