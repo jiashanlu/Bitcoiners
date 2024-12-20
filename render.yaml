@@ -45,9 +45,7 @@ services:
       - key: WS_PORT
         value: 3001
       - key: DATABASE_URL
-        fromDatabase:
-          name: bitcoiners-db
-          property: connectionString
+        value: postgresql://bitcoiners:cuh6gpBTE8kWRk2IVZPTUjEeZ63tCmLk@dpg-ctii6mlds78s73eg1t2g-a.singapore-postgres.render.com/bitcoiners_gxuf
       - key: REDIS_URL
         fromService:
           name: bitcoiners-redis
