@@ -5,6 +5,8 @@ services:
     env: static
     buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
+    dependsOn:
+      - bitcoiners-backend
     headers:
       - path: /*
         name: X-Frame-Options
@@ -33,6 +35,9 @@ services:
     startCommand: cd backend && node dist/index.js
     healthCheckPath: /health
     plan: starter
+    dependsOn:
+      - bitcoiners-db
+      - bitcoiners-redis
     envVars:
       - key: NODE_ENV
         value: production
