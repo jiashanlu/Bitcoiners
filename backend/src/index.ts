@@ -222,36 +222,29 @@ async function startServer() {
     // Connect to database with retry logic
     const connection = await connectWithRetry();
 
-    // Validate and parse REDIS_URL
-    const redisUrlStr = process.env.REDIS_URL || "";
-    if (!redisUrlStr) {
-      throw new Error("REDIS_URL environment variable is not set");
-    }
-    if (
-      !redisUrlStr.startsWith("redis://") &&
-      !redisUrlStr.startsWith("rediss://")
-    ) {
-      throw new Error(
-        "Invalid REDIS_URL format. Must start with redis:// or rediss://"
-      );
+    // Get Redis configuration from environment variables
+    const redisHost = process.env.REDIS_HOST;
+    const redisPort = parseInt(process.env.REDIS_PORT || "6379");
+    const redisUsername = process.env.REDIS_USERNAME;
+    const redisPassword = process.env.REDIS_PASSWORD;
+
+    if (!redisHost || !redisUsername || !redisPassword) {
+      throw new Error("Redis configuration environment variables are not set");
     }
 
-    const redisUrl = new URL(redisUrlStr);
-    if (!redisUrl.hostname || !redisUrl.password) {
-      throw new Error(
-        "REDIS_URL is missing required components (hostname or password)"
-      );
-    }
-
-    // Parse Redis port with fallback
-    const redisPort = redisUrl.port ? parseInt(redisUrl.port) : 6379;
-    console.log(`Redis port: ${redisPort}`);
+    console.log("Redis configuration:", {
+      host: redisHost,
+      port: redisPort,
+      username: redisUsername,
+      password: "****",
+    });
 
     // Redis connection configuration
     const redisConfig = {
-      host: redisUrl.hostname,
+      host: redisHost,
       port: redisPort,
-      password: redisUrl.password,
+      username: redisUsername,
+      password: redisPassword,
       tls:
         process.env.NODE_ENV === "production"
           ? { rejectUnauthorized: false }
