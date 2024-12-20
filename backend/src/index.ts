@@ -148,15 +148,48 @@ async function connectWithRetry(maxRetries = 10, delay = 5000) {
   throw new Error("Failed to connect to database"); // Fallback error
 }
 
+async function checkServiceHealth(
+  url: string,
+  maxRetries = 10,
+  delay = 5000
+): Promise<boolean> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const parsedUrl = new URL(url);
+      const host = parsedUrl.hostname;
+      console.log(`Health check attempt ${attempt}/${maxRetries} for ${host}`);
+
+      const address = await resolveHostWithRetry(host, 3, 2000);
+      console.log(`Successfully resolved ${host} to ${address}`);
+      return true;
+    } catch (error) {
+      console.error(`Health check attempt ${attempt} failed:`, error);
+      if (attempt === maxRetries) return false;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  return false;
+}
+
 async function startServer() {
   try {
-    // Initial delay to ensure services are ready
-    const initialDelay = process.env.NODE_ENV === "production" ? 10000 : 0;
-    if (initialDelay > 0) {
-      console.log(
-        `Waiting ${initialDelay / 1000} seconds for services to be ready...`
-      );
-      await new Promise((resolve) => setTimeout(resolve, initialDelay));
+    // Check services health in production
+    if (process.env.NODE_ENV === "production") {
+      console.log("Checking services health...");
+
+      const databaseUrl = process.env.DATABASE_URL || "";
+      const redisUrl = process.env.REDIS_URL || "";
+
+      const [dbHealth, redisHealth] = await Promise.all([
+        checkServiceHealth(databaseUrl),
+        checkServiceHealth(redisUrl),
+      ]);
+
+      if (!dbHealth || !redisHealth) {
+        throw new Error("Services health check failed");
+      }
+
+      console.log("All services are healthy");
     }
 
     // Connect to database with retry logic
@@ -195,9 +228,23 @@ async function startServer() {
       },
     };
 
-    // Create separate Redis connections
-    const redisClient = new Redis(redisConfig); // For regular operations
-    const redisSub = new Redis(redisConfig); // For subscriptions
+    // Create Redis connections with error handling
+    const redisClient = new Redis(redisConfig);
+    const redisSub = new Redis(redisConfig);
+
+    // Set up Redis error handlers
+    redisClient.on("error", (error) => {
+      console.error("Redis client error:", error);
+    });
+
+    redisSub.on("error", (error) => {
+      console.error("Redis subscriber error:", error);
+    });
+
+    // Verify Redis connections
+    await redisClient.ping();
+    await redisSub.ping();
+    console.log("Redis connections established successfully");
 
     // Initialize price service with the client connection
     priceService = new PriceService(

@@ -4,8 +4,7 @@ services:
     env: static
     buildCommand: npm ci && npm run build
     staticPublishPath: ./dist
-    dependsOn:
-      - bitcoiners-backend
+    pullRequestPreviewsEnabled: false
     headers:
       - path: /*
         name: X-Frame-Options
@@ -32,9 +31,6 @@ services:
     startCommand: cd backend && node dist/index.js
     healthCheckPath: /health
     plan: starter
-    dependsOn:
-      - bitcoiners-db
-      - bitcoiners-redis
     autoDeploy: false
     disk:
       name: tmp
