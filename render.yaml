@@ -46,14 +46,8 @@ services:
         value: 3001
       - key: DATABASE_URL
         value: postgresql://bitcoiners:cuh6gpBTE8kWRk2IVZPTUjEeZ63tCmLk@dpg-ctii6mlds78s73eg1t2g-a.singapore-postgres.render.com/bitcoiners_gxuf
-      - key: REDIS_HOST
-        value: oregon-redis.render.com
-      - key: REDIS_PORT
-        value: 6379
-      - key: REDIS_USERNAME
-        value: red-ctii6mlds78s73eg1t20
-      - key: REDIS_PASSWORD
-        value: 1H1Kp9EXXGwvUM8IAh6dFTGTmdlXFcap
+      - key: REDIS_URL
+        value: rediss://red-ctii6mlds78s73eg1t20:1H1Kp9EXXGwvUM8IAh6dFTGTmdlXFcap@oregon-redis.render.com:6379
 
   - type: redis
     name: bitcoiners-redis

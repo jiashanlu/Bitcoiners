@@ -222,42 +222,47 @@ async function startServer() {
     // Connect to database with retry logic
     const connection = await connectWithRetry();
 
-    // Get Redis configuration from environment variables
-    const redisHost = process.env.REDIS_HOST;
-    const redisPort = parseInt(process.env.REDIS_PORT || "6379");
-    const redisUsername = process.env.REDIS_USERNAME;
-    const redisPassword = process.env.REDIS_PASSWORD;
-
-    if (!redisHost || !redisUsername || !redisPassword) {
-      throw new Error("Redis configuration environment variables are not set");
+    // Get Redis URL from environment
+    const redisUrl = process.env.REDIS_URL;
+    if (!redisUrl) {
+      throw new Error("REDIS_URL environment variable is not set");
     }
 
-    console.log("Redis configuration:", {
-      host: redisHost,
-      port: redisPort,
-      username: redisUsername,
-      password: "****",
-    });
+    // Validate Redis URL format
+    if (!redisUrl.startsWith("rediss://")) {
+      throw new Error(
+        "Invalid REDIS_URL format. Must start with rediss:// for TLS connection"
+      );
+    }
 
-    // Redis connection configuration
-    const redisConfig = {
-      host: redisHost,
-      port: redisPort,
-      username: redisUsername,
-      password: redisPassword,
-      tls:
-        process.env.NODE_ENV === "production"
-          ? { rejectUnauthorized: false }
-          : undefined,
+    try {
+      const redisUrlObj = new URL(redisUrl);
+      console.log(
+        "Connecting to Redis:",
+        `${redisUrlObj.protocol}//${redisUrlObj.username}:****@${redisUrlObj.hostname}:${redisUrlObj.port}`
+      );
+    } catch (error) {
+      console.error("Failed to parse Redis URL:", error);
+      throw new Error("Invalid Redis URL format");
+    }
+
+    // Redis connection options with TLS
+    const redisOptions = {
+      tls: { rejectUnauthorized: false },
       retryStrategy: (times: number) => {
-        const delay = Math.min(times * 1000, 30000); // Exponential up to 30s
+        const delay = Math.min(times * 1000, 30000);
         console.log(`Redis retry attempt ${times}, waiting ${delay}ms`);
         return delay;
       },
       maxRetriesPerRequest: 20,
-      connectTimeout: 30000, // Increased timeout
+      connectTimeout: 30000,
       enableReadyCheck: true,
       reconnectOnError: (err: Error) => {
+        console.error("Redis connection error:", {
+          message: err.message,
+          stack: err.stack,
+          code: (err as any).code,
+        });
         const targetError = "READONLY";
         if (err.message.includes(targetError)) {
           return true;
@@ -266,23 +271,37 @@ async function startServer() {
       },
     };
 
-    // Create Redis connections with error handling
-    const redisClient = new Redis(redisConfig);
-    const redisSub = new Redis(redisConfig);
+    // Create Redis connections with URL and options
+    console.log("Creating Redis client connections...");
+    const redisClient = new Redis(redisUrl, redisOptions);
+    const redisSub = new Redis(redisUrl, redisOptions);
 
-    // Set up Redis error handlers
+    // Set up Redis error handlers with detailed logging
     redisClient.on("error", (error) => {
-      console.error("Redis client error:", error);
+      console.error("Redis client error:", {
+        message: error.message,
+        stack: error.stack,
+        code: (error as any).code,
+      });
     });
 
     redisSub.on("error", (error) => {
-      console.error("Redis subscriber error:", error);
+      console.error("Redis subscriber error:", {
+        message: error.message,
+        stack: error.stack,
+        code: (error as any).code,
+      });
     });
 
     // Verify Redis connections
-    await redisClient.ping();
-    await redisSub.ping();
-    console.log("Redis connections established successfully");
+    try {
+      await redisClient.ping();
+      await redisSub.ping();
+      console.log("Redis connections established successfully");
+    } catch (error) {
+      console.error("Failed to verify Redis connections:", error);
+      throw error;
+    }
 
     // Initialize price service with the client connection
     priceService = new PriceService(
