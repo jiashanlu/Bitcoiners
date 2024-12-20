@@ -47,7 +47,7 @@ services:
       - key: DATABASE_URL
         value: postgresql://bitcoiners:cuh6gpBTE8kWRk2IVZPTUjEeZ63tCmLk@dpg-ctii6mlds78s73eg1t2g-a.singapore-postgres.render.com/bitcoiners_gxuf
       - key: REDIS_URL
-        value: redis://default:password@red-ctii6mlds78s73eg1t20.singapore-redis.render.com:6379
+        value: rediss://red-ctii6mlds78s73eg1t20:1H1Kp9EXXGwvUM8IAh6dFTGTmdlXFcap@oregon-redis.render.com:6379
 
   - type: redis
     name: bitcoiners-redis
