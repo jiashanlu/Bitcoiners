@@ -51,7 +51,6 @@ services:
 
   - type: redis
     name: bitcoiners-redis
-    ipAllowList: ["0.0.0.0/0"]
     plan: free
     maxmemoryPolicy: noeviction
 
@@ -60,5 +59,4 @@ databases:
     databaseName: bitcoiners
     user: bitcoiners
     plan: free
-    ipAllowList: ["0.0.0.0/0"]
     region: singapore
