@@ -118,6 +118,10 @@ async function connectWithRetry(maxRetries = 10, delay = 5000) {
         extra: {
           connectionTimeoutMillis: 10000,
           keepAlive: true,
+          // Add application_name for better identification in pg_stat_activity
+          application_name: "bitcoiners-backend",
+          // Add fallback_application_name as backup
+          fallback_application_name: "bitcoiners-backend-fallback",
         },
       } as Parameters<typeof createConnection>[0];
 
@@ -130,8 +134,16 @@ async function connectWithRetry(maxRetries = 10, delay = 5000) {
       // Connect to PostgreSQL
       const connection = await createConnection(connectionOptions);
 
-      // Verify database connection
-      await connection.query("SELECT NOW()");
+      // Verify database connection and version
+      const [timeResult, versionResult] = await Promise.all([
+        connection.query("SELECT NOW()"),
+        connection.query("SHOW server_version"),
+      ]);
+
+      console.log(
+        "Connected to PostgreSQL version:",
+        versionResult[0].server_version
+      );
       console.log("Database connection established successfully");
       return connection;
     } catch (error) {
