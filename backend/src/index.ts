@@ -90,16 +90,6 @@ async function connectWithRetry(maxRetries = 10, delay = 5000) {
       const dbUrl = new URL(databaseUrl);
       const useSSL = process.env.NODE_ENV === "production";
 
-      // Resolve database hostname first
-      if (process.env.NODE_ENV === "production") {
-        console.log(
-          `Attempting to resolve database hostname: ${dbUrl.hostname}`
-        );
-        const resolvedHost = await resolveHostWithRetry(dbUrl.hostname);
-        console.log(`Using resolved database host: ${resolvedHost}`);
-        dbUrl.hostname = resolvedHost;
-      }
-
       // Connection options based on environment
       const connectionOptions = {
         name: `connection_${attempt}`, // Unique connection name for each attempt
@@ -185,42 +175,15 @@ async function checkServiceHealth(
 
 async function startServer() {
   try {
-    // Check services health in production
-    if (process.env.NODE_ENV === "production") {
-      console.log("Checking services health...");
-
-      const databaseUrl = process.env.DATABASE_URL || "";
-      const redisUrl = process.env.REDIS_URL || "";
-
-      const [dbHealth, redisHealth] = await Promise.all([
-        checkServiceHealth(databaseUrl),
-        checkServiceHealth(redisUrl),
-      ]);
-
-      if (!dbHealth || !redisHealth) {
-        throw new Error("Services health check failed");
-      }
-
-      console.log("All services are healthy");
-    }
-
     // Connect to database with retry logic
     const connection = await connectWithRetry();
 
     // Parse REDIS_URL for Redis connection
     const redisUrl = new URL(process.env.REDIS_URL || "");
 
-    // Resolve Redis hostname in production
-    let redisHost = redisUrl.hostname;
-    if (process.env.NODE_ENV === "production") {
-      console.log(`Attempting to resolve Redis hostname: ${redisHost}`);
-      redisHost = await resolveHostWithRetry(redisHost);
-      console.log(`Using resolved Redis host: ${redisHost}`);
-    }
-
     // Redis connection configuration
     const redisConfig = {
-      host: redisHost,
+      host: redisUrl.hostname,
       port: parseInt(redisUrl.port),
       password: redisUrl.password,
       tls:
