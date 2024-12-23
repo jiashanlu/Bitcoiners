@@ -23,7 +23,60 @@ interface OKXResponse {
 }
 
 export class OKXExchange extends AbstractExchange {
-  private readonly baseUrl: string = "https://www.okx.com/api/v5";
+  private readonly baseUrl: string = "https://www.okx.com";
+  private getRequestHeaders(isFirstRequest: boolean = false) {
+    const timestamp = Date.now();
+    const browserData = {
+      platform: "Win32",
+      userAgent:
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      language: "en-US",
+      screenResolution: "1920x1080",
+      timezone: "UTC",
+      colorDepth: 24,
+    };
+
+    const headers: Record<string, string> = {
+      authority: "www.okx.com",
+      accept: isFirstRequest
+        ? "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8"
+        : "application/json",
+      "accept-encoding": "gzip, deflate, br",
+      "accept-language": "en-US,en;q=0.9",
+      "cache-control": "no-cache",
+      pragma: "no-cache",
+      "sec-ch-ua":
+        '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": '"Windows"',
+      "sec-fetch-dest": isFirstRequest ? "document" : "empty",
+      "sec-fetch-mode": isFirstRequest ? "navigate" : "cors",
+      "sec-fetch-site": isFirstRequest ? "none" : "same-origin",
+      "sec-fetch-user": isFirstRequest ? "?1" : undefined,
+      "upgrade-insecure-requests": isFirstRequest ? "1" : undefined,
+      "user-agent": browserData.userAgent,
+    };
+
+    if (!isFirstRequest) {
+      headers["content-type"] = "application/json";
+      headers["origin"] = "https://www.okx.com";
+      headers["referer"] = "https://www.okx.com/trade-spot";
+      headers["x-requested-with"] = "XMLHttpRequest";
+    }
+
+    // Add browser fingerprint data
+    const fingerprint = Buffer.from(
+      JSON.stringify({
+        ...browserData,
+        timestamp,
+        random: Math.random(),
+      })
+    ).toString("base64");
+
+    headers["cookie"] = `defaultLocale=en_US; _okx_fp=${fingerprint}`;
+
+    return headers;
+  }
   private readonly pairMapping: Record<TradingPair, string> = {
     "BTC/AED": "BTC-AED",
     "USDT/AED": "USDT-AED",
@@ -48,25 +101,7 @@ export class OKXExchange extends AbstractExchange {
   async fetchPrice(pair: TradingPair): Promise<ExchangePrice | null> {
     try {
       const okxPair = this.pairMapping[pair];
-      const headers = {
-        Accept: "application/json",
-        "Accept-Encoding": "gzip, deflate, br",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Cache-Control": "no-cache",
-        Connection: "keep-alive",
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "sec-ch-ua":
-          '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": '"Windows"',
-        "Sec-Fetch-Dest": "empty",
-        "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Site": "same-site",
-        Pragma: "no-cache",
-        Origin: "https://www.okx.com",
-        Referer: "https://www.okx.com/",
-      };
+      const headers = this.getRequestHeaders();
 
       let response: { data: OKXResponse } | undefined;
       const maxRetries = 3;
@@ -86,33 +121,70 @@ export class OKXExchange extends AbstractExchange {
 
           try {
             console.log(`Attempting to fetch from ${this.baseUrl} for ${pair}`);
+            // First make a request to the main page like a browser would
+            const mainResponse = await axios.get(this.baseUrl, {
+              headers: this.getRequestHeaders(true),
+              maxRedirects: 5,
+              validateStatus: null,
+              withCredentials: true,
+              timeout: 30000,
+            });
+
+            // Extract cookies and wait a bit like a real browser would
+            const cookies = mainResponse.headers["set-cookie"];
+            await new Promise((resolve) =>
+              setTimeout(resolve, Math.random() * 1000 + 500)
+            );
+
+            // Now make the API request with updated headers
+            const apiHeaders = this.getRequestHeaders(false);
+            if (cookies) {
+              apiHeaders.cookie = `${apiHeaders.cookie}; ${cookies.join("; ")}`;
+            }
+
             const axiosResponse = await axios.get<OKXResponse>(
-              `${this.baseUrl}/market/ticker`,
+              `${this.baseUrl}/api/v5/market/ticker`,
               {
                 params: {
                   instId: okxPair,
+                  t: Date.now(),
+                  _: Date.now(),
                 },
-                headers: {
-                  ...headers,
-                  "Sec-Fetch-Site": "same-origin",
-                  "Sec-Fetch-Mode": "cors",
-                },
+                headers: apiHeaders,
                 timeout: 30000,
                 proxy: false,
                 maxRedirects: 5,
-                validateStatus: null, // Allow any status code
+                validateStatus: null,
+                decompress: true,
+                withCredentials: true,
               }
             );
+
+            // Check if response is HTML (Cloudflare block)
+            const responseData = axiosResponse.data as OKXResponse | string;
+            if (
+              typeof responseData === "string" &&
+              responseData.includes("<!DOCTYPE html>")
+            ) {
+              throw new Error("Received Cloudflare challenge page");
+            }
 
             // Log full response for debugging
             console.log(`OKX response for ${pair}:`, {
               status: axiosResponse.status,
               statusText: axiosResponse.statusText,
-              data: axiosResponse.data,
+              data:
+                typeof responseData === "string"
+                  ? "HTML Response"
+                  : responseData,
               headers: axiosResponse.headers,
             });
 
-            response = { data: axiosResponse.data };
+            if (typeof responseData === "string") {
+              throw new Error("Received HTML response instead of JSON");
+            }
+
+            response = { data: responseData };
 
             // Check if we have valid data regardless of response code
             if (axiosResponse.data?.data?.[0]) {
