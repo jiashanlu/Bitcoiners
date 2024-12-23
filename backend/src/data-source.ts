@@ -10,6 +10,6 @@ export const AppDataSource = new DataSource({
   entities: [Price],
   migrations: [__dirname + "/migrations/*.{js,ts}"],
   ssl: {
-    rejectUnauthorized: true,
+    rejectUnauthorized: false,
   },
 });
