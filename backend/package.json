@@ -8,9 +8,9 @@
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "typeorm": "typeorm-ts-node-commonjs",
-    "migration:generate": "npm run typeorm migration:generate",
-    "migration:run": "npm run typeorm migration:run -- -d src/index.ts",
-    "migration:revert": "npm run typeorm migration:revert -- -d src/index.ts"
+    "migration:generate": "npm run typeorm migration:generate -- -d src/data-source.ts",
+    "migration:run": "npm run typeorm migration:run -- -d src/data-source.ts",
+    "migration:revert": "npm run typeorm migration:revert -- -d src/data-source.ts"
   },
   "dependencies": {
     "@types/cors": "^2.8.17",

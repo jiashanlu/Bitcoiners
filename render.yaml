@@ -29,6 +29,8 @@ services:
       cd backend
       npm ci
       npm run build
+      export NODE_ENV=production
+      export DATABASE_URL=$DATABASE_URL
       npm run migration:run
     startCommand: cd backend && node dist/index.js
     healthCheckPath: /health

@@ -1,7 +1,8 @@
 import "reflect-metadata";
 import express from "express";
 import cors from "cors";
-import { createConnection, DataSource, LoggerOptions } from "typeorm";
+import { DataSource } from "typeorm";
+import { AppDataSource } from "./data-source";
 import Redis from "ioredis";
 import { Price } from "./models/Price";
 import { PriceService } from "./services/PriceService";
@@ -80,90 +81,13 @@ async function connectWithRetry(maxRetries = 10, delay = 10000) {
     try {
       console.log(`Database connection attempt ${attempt}/${maxRetries}`);
 
-      const databaseUrl = process.env.DATABASE_URL || "";
-      if (!databaseUrl) {
-        throw new Error("DATABASE_URL environment variable is not set");
-      }
-
-      // Validate database URL format
-      if (
-        !databaseUrl.startsWith("postgres://") &&
-        !databaseUrl.startsWith("postgresql://")
-      ) {
-        throw new Error(
-          "Invalid DATABASE_URL format. Must start with postgres:// or postgresql://"
-        );
-      }
-
-      console.log("Attempting to connect to:", getRedactedUrl(databaseUrl));
-
-      const dbUrl = new URL(databaseUrl);
-
-      // Validate required database URL components
-      if (
-        !dbUrl.hostname ||
-        !dbUrl.username ||
-        !dbUrl.password ||
-        !dbUrl.pathname
-      ) {
-        throw new Error(
-          "DATABASE_URL is missing required components (hostname, username, password, or database name)"
-        );
-      }
-      console.log("Database connection details:", {
-        host: dbUrl.hostname,
-        port: dbUrl.port || "5432 (default)",
-        database: dbUrl.pathname.substr(1),
-        username: dbUrl.username,
-        ssl: process.env.NODE_ENV === "production",
-      });
-
-      const useSSL = process.env.NODE_ENV === "production";
-
-      // Parse port with fallback to default PostgreSQL port
-      const port = dbUrl.port ? parseInt(dbUrl.port) : 5432;
-      console.log(`Database port: ${port}`);
-
-      // Connection options based on environment
-      const connectionOptions = {
-        name: `connection_${attempt}`, // Unique connection name for each attempt
-        type: "postgres" as const,
-        host: dbUrl.hostname,
-        port: port,
-        username: dbUrl.username,
-        password: dbUrl.password,
-        database: dbUrl.pathname.substr(1),
-        entities: [Price],
-        synchronize: process.env.NODE_ENV !== "production", // Only in development
-        logging: process.env.NODE_ENV !== "production",
-        migrations: [__dirname + "/migrations/*.js"], // Add migrations support
-        migrationsRun: process.env.NODE_ENV === "production", // Run migrations in production
-        ssl: useSSL ? { rejectUnauthorized: false } : false,
-        connectTimeoutMS: 30000, // Increased timeout for potential DNS delays
-        poolSize: 20,
-        extra: {
-          connectionTimeoutMillis: 30000, // Increased timeout
-          keepAlive: true,
-          // Add application_name for better identification in pg_stat_activity
-          application_name: "bitcoiners-backend",
-          // Add fallback_application_name as backup
-          fallback_application_name: "bitcoiners-backend-fallback",
-        },
-      } as Parameters<typeof createConnection>[0];
-
-      console.log("Connection options:", {
-        ...connectionOptions,
-        password: "****",
-        extra: connectionOptions.extra,
-      });
-
-      // Connect to PostgreSQL
-      const connection = await createConnection(connectionOptions);
+      // Initialize the data source
+      await AppDataSource.initialize();
 
       // Verify database connection and version
       const [timeResult, versionResult] = await Promise.all([
-        connection.query("SELECT NOW()"),
-        connection.query("SHOW server_version"),
+        AppDataSource.query("SELECT NOW()"),
+        AppDataSource.query("SHOW server_version"),
       ]);
 
       console.log(
@@ -171,7 +95,7 @@ async function connectWithRetry(maxRetries = 10, delay = 10000) {
         versionResult[0].server_version
       );
       console.log("Database connection established successfully");
-      return connection;
+      return AppDataSource;
     } catch (error) {
       console.error(`Database connection attempt ${attempt} failed:`, {
         error: error.message,
