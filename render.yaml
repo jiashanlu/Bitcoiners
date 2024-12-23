@@ -30,9 +30,10 @@ services:
       cd backend
       npm ci
       npm run build
+      cp -r src/migrations dist/
       export NODE_ENV=production
       export DATABASE_URL=$DATABASE_URL
-      npm run migration:run
+      node -r ts-node/register ./node_modules/typeorm/cli.js migration:run -d dist/data-source.js
     startCommand: cd backend && node dist/index.js
     healthCheckPath: /health
     plan: starter

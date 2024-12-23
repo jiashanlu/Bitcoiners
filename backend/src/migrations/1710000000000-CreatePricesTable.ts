@@ -2,6 +2,9 @@ import { MigrationInterface, QueryRunner, Table } from "typeorm";
 
 export class CreatePricesTable1710000000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
+    // Enable uuid-ossp extension
+    await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
+
     await queryRunner.createTable(
       new Table({
         name: "prices",
