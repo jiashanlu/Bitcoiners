@@ -20,6 +20,7 @@ interface OKXResponse {
 
 export class OKXExchange extends AbstractExchange {
   private readonly baseUrl: string = "https://www.okx.com/api/v5";
+  private readonly apiBaseUrl: string = "https://api.okx.com/api/v5";
   private readonly pairMapping: Record<TradingPair, string> = {
     "BTC/AED": "BTC-AED",
     "USDT/AED": "USDT-AED",
@@ -32,23 +33,97 @@ export class OKXExchange extends AbstractExchange {
   async fetchPrice(pair: TradingPair): Promise<ExchangePrice | null> {
     try {
       const okxPair = this.pairMapping[pair];
-      const response = await axios.get<OKXResponse>(
-        `${this.baseUrl}/market/ticker`,
-        {
-          params: {
-            instId: okxPair,
-          },
+      const headers = {
+        Accept: "application/json",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "sec-ch-ua":
+          '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"macOS"',
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "cross-site",
+        Pragma: "no-cache",
+        Origin: "https://www.okx.com",
+        Referer: "https://www.okx.com/",
+      };
+
+      let response: { data: OKXResponse } | undefined;
+      const maxRetries = 3;
+      let lastError;
+
+      for (let attempt = 0; attempt < maxRetries; attempt++) {
+        try {
+          if (attempt > 0) {
+            const delay = Math.min(1000 * Math.pow(2, attempt), 10000);
+            console.log(
+              `Retrying OKX API call for ${pair}, attempt ${
+                attempt + 1
+              }/${maxRetries} after ${delay}ms delay`
+            );
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          }
+
+          // Try the main domain first, fall back to API domain if it fails
+          try {
+            response = await axios.get<OKXResponse>(
+              `${this.baseUrl}/market/ticker`,
+              {
+                params: {
+                  instId: okxPair,
+                },
+                headers: {
+                  ...headers,
+                  "Sec-Fetch-Site": "same-origin",
+                },
+                timeout: 5000,
+              }
+            );
+          } catch (mainError) {
+            console.log(`Falling back to API domain for ${pair}`);
+            response = await axios.get<OKXResponse>(
+              `${this.apiBaseUrl}/market/ticker`,
+              {
+                params: {
+                  instId: okxPair,
+                },
+                headers,
+                timeout: 10000,
+              }
+            );
+          }
+
+          // If we get here, the request was successful
+          break;
+        } catch (error) {
+          lastError = error;
+          console.error(`OKX API attempt ${attempt + 1} failed for ${pair}:`, {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            headers: error.response?.headers,
+          });
+
+          // If this was our last retry, throw the error
+          if (attempt === maxRetries - 1) {
+            throw error;
+          }
         }
-      );
+      }
 
       if (
+        !response ||
         response.data.code !== "0" ||
         !response.data.data ||
         !response.data.data[0]
       ) {
         console.error(
           `Invalid response from OKX API for ${pair}:`,
-          response.data
+          response?.data ?? "No response received"
         );
         throw new Error("Invalid response from OKX API");
       }
