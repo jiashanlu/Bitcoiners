@@ -19,8 +19,14 @@ interface OKXResponse {
 }
 
 export class OKXExchange extends AbstractExchange {
-  private readonly baseUrl: string = "https://www.okx.com/api/v5";
-  private readonly apiBaseUrl: string = "https://api.okx.com/api/v5";
+  // Using IP addresses directly to avoid DNS issues
+  private readonly baseUrls: string[] = [
+    "https://www.okx.com/api/v5",
+    "https://api.okx.com/api/v5",
+    "https://18.178.147.205/api/v5", // okx.com IP
+    "https://54.168.136.243/api/v5", // api.okx.com IP
+    "https://52.193.204.146/api/v5", // Another okx.com IP
+  ];
   private readonly pairMapping: Record<TradingPair, string> = {
     "BTC/AED": "BTC-AED",
     "USDT/AED": "USDT-AED",
@@ -69,33 +75,50 @@ export class OKXExchange extends AbstractExchange {
             await new Promise((resolve) => setTimeout(resolve, delay));
           }
 
-          // Try the main domain first, fall back to API domain if it fails
-          try {
-            response = await axios.get<OKXResponse>(
-              `${this.baseUrl}/market/ticker`,
-              {
-                params: {
-                  instId: okxPair,
-                },
-                headers: {
-                  ...headers,
-                  "Sec-Fetch-Site": "same-origin",
-                },
-                timeout: 5000,
+          // Try each URL in sequence until one works
+          for (const baseUrl of this.baseUrls) {
+            try {
+              console.log(`Attempting to fetch from ${baseUrl} for ${pair}`);
+              response = await axios.get<OKXResponse>(
+                `${baseUrl}/market/ticker`,
+                {
+                  params: {
+                    instId: okxPair,
+                  },
+                  headers: {
+                    ...headers,
+                    "Sec-Fetch-Site": baseUrl.includes("okx.com")
+                      ? "same-origin"
+                      : "cross-site",
+                    Host: baseUrl.includes("api.okx")
+                      ? "api.okx.com"
+                      : "www.okx.com",
+                  },
+                  timeout: 10000,
+                  httpsAgent: new (require("https").Agent)({
+                    rejectUnauthorized: false, // Allow self-signed certs
+                  }),
+                }
+              );
+
+              // If successful, break the loop
+              if (response?.data) {
+                console.log(`Successfully fetched from ${baseUrl} for ${pair}`);
+                break;
               }
-            );
-          } catch (mainError) {
-            console.log(`Falling back to API domain for ${pair}`);
-            response = await axios.get<OKXResponse>(
-              `${this.apiBaseUrl}/market/ticker`,
-              {
-                params: {
-                  instId: okxPair,
-                },
-                headers,
-                timeout: 10000,
-              }
-            );
+            } catch (urlError) {
+              console.log(
+                `Failed to fetch from ${baseUrl} for ${pair}:`,
+                urlError.message
+              );
+              // Continue to next URL if this one failed
+              continue;
+            }
+          }
+
+          // If we still don't have a response after trying all URLs, throw error
+          if (!response) {
+            throw new Error(`All URLs failed for ${pair}`);
           }
 
           // If we get here, the request was successful
