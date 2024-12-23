@@ -86,7 +86,7 @@ export class OKXExchange extends AbstractExchange {
 
           try {
             console.log(`Attempting to fetch from ${this.baseUrl} for ${pair}`);
-            response = await axios.get<OKXResponse>(
+            const axiosResponse = await axios.get<OKXResponse>(
               `${this.baseUrl}/market/ticker`,
               {
                 params: {
@@ -95,16 +95,38 @@ export class OKXExchange extends AbstractExchange {
                 headers: {
                   ...headers,
                   "Sec-Fetch-Site": "same-origin",
+                  "Sec-Fetch-Mode": "cors",
                 },
-                timeout: 5000,
+                timeout: 30000,
+                proxy: false,
                 maxRedirects: 5,
-                validateStatus: (status) => status < 500,
+                validateStatus: null, // Allow any status code
               }
             );
 
-            if (response?.data?.code !== "0") {
-              throw new Error(`Invalid response code: ${response?.data?.code}`);
+            // Log full response for debugging
+            console.log(`OKX response for ${pair}:`, {
+              status: axiosResponse.status,
+              statusText: axiosResponse.statusText,
+              data: axiosResponse.data,
+              headers: axiosResponse.headers,
+            });
+
+            response = { data: axiosResponse.data };
+
+            // Check if we have valid data regardless of response code
+            if (axiosResponse.data?.data?.[0]) {
+              console.log(
+                `Successfully fetched from ${this.baseUrl} for ${pair}`
+              );
+              break;
             }
+
+            throw new Error(
+              `Invalid response structure: ${JSON.stringify(
+                axiosResponse.data
+              )}`
+            );
           } catch (error) {
             console.error(
               `Failed to fetch from ${this.baseUrl} for ${pair}:`,

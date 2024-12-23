@@ -9,7 +9,7 @@ interface WebSocketMessage {
 
 class WebSocketService {
   private ws: WebSocket | null = null;
-  private maxReconnectAttempts: number = 5;
+  private maxReconnectAttempts: number = Infinity; // Keep trying to reconnect
   private reconnectAttempts: number = 0;
   private callbacks: Map<TradingPair, Set<PriceUpdateCallback>> = new Map();
   private readonly wsUrl: string;
@@ -32,10 +32,7 @@ class WebSocketService {
   }
 
   private connect() {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error("Max reconnection attempts reached");
-      return;
-    }
+    // Always try to connect
 
     try {
       console.log(`Connecting to WebSocket at ${this.wsUrl}`);
@@ -67,9 +64,7 @@ class WebSocketService {
 
       this.ws.onclose = () => {
         console.log("WebSocket connection closed");
-        if (this.reconnectAttempts < this.maxReconnectAttempts) {
-          this.scheduleReconnect();
-        }
+        this.scheduleReconnect();
       };
 
       this.ws.onerror = (error) => {
@@ -83,7 +78,10 @@ class WebSocketService {
 
   private scheduleReconnect() {
     this.reconnectAttempts++;
-    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 10000);
+    const delay = Math.min(
+      1000 * Math.pow(2, Math.min(this.reconnectAttempts, 6)),
+      30000
+    );
     console.log(
       `Scheduling reconnection attempt ${this.reconnectAttempts} in ${delay}ms`
     );

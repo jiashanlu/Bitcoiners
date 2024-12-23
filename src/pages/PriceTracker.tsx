@@ -122,7 +122,8 @@ export const PriceTracker: React.FC = () => {
     }));
   };
 
-  if (state.isLoading) {
+  // Show loading state only when no prices are available
+  if (state.isLoading && (!state.prices || state.prices.length === 0)) {
     return (
       <Container maxW="container.xl" py={8}>
         <Box
@@ -145,7 +146,8 @@ export const PriceTracker: React.FC = () => {
     );
   }
 
-  if (state.error) {
+  // Show error only if there's an error and no prices are available
+  if (state.error && (!state.prices || state.prices.length === 0)) {
     return (
       <Container maxW="container.xl" py={8}>
         <Box
@@ -161,10 +163,34 @@ export const PriceTracker: React.FC = () => {
           }}
         >
           <Text fontSize="xl" color="#CE1126">
-            Error loading prices. Please try again later.
+            Error loading some prices. Showing available data.
           </Text>
           <Text mt={2} color="#4A5568" _dark={{ color: "#A0AEC0" }}>
             {state.error.message}
+          </Text>
+        </Box>
+      </Container>
+    );
+  }
+
+  // If we have no prices at all, show a message
+  if (!state.prices || state.prices.length === 0) {
+    return (
+      <Container maxW="container.xl" py={8}>
+        <Box
+          p={8}
+          textAlign="center"
+          bg="white"
+          borderRadius="xl"
+          borderWidth="1px"
+          borderColor="#F7931A"
+          _dark={{
+            bg: "#1A1A1A",
+            borderColor: "#F7931A",
+          }}
+        >
+          <Text fontSize="xl" color="#4A5568" _dark={{ color: "#A0AEC0" }}>
+            No exchange prices available at the moment. Please try again later.
           </Text>
         </Box>
       </Container>
