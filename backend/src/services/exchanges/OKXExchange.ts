@@ -1,56 +1,38 @@
-import axios from "axios";
 import { ExchangePrice } from "../../types/fees";
 import { AbstractExchange, TradingPair } from "./BaseExchange";
 import { getDefaultFees, getFeesByVolume } from "../../config/fees";
-import dns from "dns";
-import { promisify } from "util";
+import WebSocket from "ws";
 
-const lookup = promisify(dns.lookup);
-
-interface OKXTickerResponse {
-  code: string;
-  msg: string;
-  data: Array<{
-    instId: string;
-    last: string;
-    lastSz: string;
-    askPx: string;
-    askSz: string;
-    bidPx: string;
-    bidSz: string;
-    open24h: string;
-    high24h: string;
-    low24h: string;
-    volCcy24h: string;
-    vol24h: string;
-    ts: string;
-  }>;
+interface OKXTickerData {
+  instId: string;
+  last: string;
+  lastSz: string;
+  askPx: string;
+  askSz: string;
+  bidPx: string;
+  bidSz: string;
+  open24h: string;
+  high24h: string;
+  low24h: string;
+  volCcy24h: string;
+  vol24h: string;
+  ts: string;
 }
 
-interface OKXInstrumentResponse {
-  code: string;
-  msg: string;
-  data: Array<{
+interface OKXWebSocketMessage {
+  event?: string;
+  arg?: {
+    channel: string;
     instId: string;
-    baseCcy: string;
-    quoteCcy: string;
-    state: string;
-    tickSz: string;
-    lotSz: string;
-    minSz: string;
-    instType: string;
-  }>;
+  };
+  data?: OKXTickerData[];
 }
 
 export class OKXExchange extends AbstractExchange {
-  private readonly baseUrl: string = "https://eea.okx.com";
-
-  private getRequestHeaders() {
-    return {
-      Accept: "application/json",
-      "Content-Type": "application/json",
-    };
-  }
+  private readonly wsUrl: string = "wss://ws.okx.com:8443/ws/v5/public";
+  private ws: WebSocket | null = null;
+  private priceData: Map<string, OKXTickerData> = new Map();
+  private connectionPromise: Promise<void> | null = null;
 
   private readonly pairMapping: Record<TradingPair, string> = {
     "BTC/AED": "BTC-AED",
@@ -59,45 +41,84 @@ export class OKXExchange extends AbstractExchange {
 
   constructor() {
     super("OKX");
+    this.setupWebSocket();
   }
 
-  private async resolveDomain(domain: string): Promise<string> {
-    try {
-      const dnsResult = await lookup(
-        domain.replace("https://", "").split("/")[0]
-      );
-      return dnsResult.address;
-    } catch (error) {
-      console.error(`DNS resolution failed for ${domain}:`, error);
-      throw error;
+  private setupWebSocket() {
+    if (this.ws) {
+      return;
     }
+
+    console.log("Connecting to OKX WebSocket...");
+    this.ws = new WebSocket(this.wsUrl);
+
+    this.connectionPromise = new Promise((resolve, reject) => {
+      if (!this.ws) return reject(new Error("WebSocket not initialized"));
+
+      this.ws.on("open", () => {
+        console.log("OKX WebSocket connected");
+        // Subscribe to all our pairs
+        Object.values(this.pairMapping).forEach((pair) => {
+          const subscribeMsg = {
+            op: "subscribe",
+            args: [
+              {
+                channel: "tickers",
+                instId: pair,
+              },
+            ],
+          };
+          this.ws?.send(JSON.stringify(subscribeMsg));
+        });
+        resolve();
+      });
+
+      this.ws.on("message", (data: Buffer) => {
+        try {
+          const message: OKXWebSocketMessage = JSON.parse(data.toString());
+
+          if (message.event === "subscribe") {
+            console.log("Successfully subscribed to channel:", message.arg);
+            return;
+          }
+
+          if (message.data && message.data[0]) {
+            const ticker = message.data[0];
+            this.priceData.set(ticker.instId, ticker);
+          }
+        } catch (error) {
+          console.error("Error processing WebSocket message:", error);
+        }
+      });
+
+      this.ws.on("error", (error) => {
+        console.error("OKX WebSocket error:", error);
+        reject(error);
+      });
+
+      this.ws.on("close", () => {
+        console.log("OKX WebSocket closed, reconnecting in 5s...");
+        this.ws = null;
+        setTimeout(() => this.setupWebSocket(), 5000);
+      });
+    });
   }
 
   async fetchPrice(pair: TradingPair): Promise<ExchangePrice | null> {
     try {
+      // Ensure WebSocket is connected
+      if (this.connectionPromise) {
+        await this.connectionPromise;
+      }
+
       const okxPair = this.pairMapping[pair];
-      const headers = this.getRequestHeaders();
+      const ticker = this.priceData.get(okxPair);
 
-      // Fetch price data
-      console.log(`Fetching price data for ${okxPair}`);
-      const tickerResponse = await axios.get<OKXTickerResponse>(
-        `${this.baseUrl}/api/v5/market/ticker`,
-        {
-          params: {
-            instId: okxPair,
-          },
-          headers: headers,
-          timeout: 30000,
-        }
-      );
-
-      if (!tickerResponse.data?.data?.[0]) {
-        console.error(`No ticker data found for ${pair}`);
+      if (!ticker) {
+        console.log(`No ticker data available for ${pair} (${okxPair})`);
         return null;
       }
 
-      const ticker = tickerResponse.data.data[0];
-      console.log(`Received ticker data for ${pair}:`, ticker);
       const bid = parseFloat(ticker.bidPx);
       const ask = parseFloat(ticker.askPx);
       const price = (bid + ask) / 2;
@@ -115,7 +136,7 @@ export class OKXExchange extends AbstractExchange {
         volume24h: parseFloat(ticker.volCcy24h),
       });
     } catch (error) {
-      console.error(`OKX API Error for ${pair}:`, error);
+      console.error(`OKX WebSocket Error for ${pair}:`, error);
       return null;
     }
   }
