@@ -89,8 +89,10 @@ export class PriceService {
     try {
       for (const pair of this.PAIRS) {
         // Fetch prices from all exchanges with current volume for each pair
-        const pricePromises = this.exchanges.map((exchange) =>
-          exchange.fetchPrice(pair).then((price) => {
+        // Fetch prices from all exchanges independently
+        const pricePromises = this.exchanges.map(async (exchange) => {
+          try {
+            const price = await exchange.fetchPrice(pair);
             if (price) {
               // Update fees based on current volume
               const fees = exchange.getFeesByVolume(this.currentVolume);
@@ -99,13 +101,24 @@ export class PriceService {
                 fees,
               };
             }
-            return null;
-          })
-        );
+          } catch (error) {
+            console.error(
+              `Failed to fetch price from ${exchange.getName()} for ${pair}:`,
+              error
+            );
+          }
+          return null;
+        });
 
-        const prices = (await Promise.all(pricePromises)).filter(
-          (price): price is ExchangePrice => price !== null
-        );
+        // Use Promise.allSettled to handle both successful and failed promises
+        const results = await Promise.allSettled(pricePromises);
+        const prices = results
+          .filter(
+            (result): result is PromiseFulfilledResult<ExchangePrice | null> =>
+              result.status === "fulfilled" && result.value !== null
+          )
+          .map((result) => result.value)
+          .filter((price): price is ExchangePrice => price !== null);
 
         if (prices.length > 0) {
           // Save raw prices to database

@@ -23,10 +23,7 @@ interface OKXResponse {
 }
 
 export class OKXExchange extends AbstractExchange {
-  private readonly baseUrls: string[] = [
-    "https://www.okx.com/api/v5",
-    "https://api.okx.com/api/v5",
-  ];
+  private readonly baseUrl: string = "https://www.okx.com/api/v5";
   private readonly pairMapping: Record<TradingPair, string> = {
     "BTC/AED": "BTC-AED",
     "USDT/AED": "USDT-AED",
@@ -87,49 +84,33 @@ export class OKXExchange extends AbstractExchange {
             await new Promise((resolve) => setTimeout(resolve, delay));
           }
 
-          // Try each URL in sequence until one works
-          for (const baseUrl of this.baseUrls) {
-            try {
-              console.log(`Attempting to fetch from ${baseUrl} for ${pair}`);
-
-              // Pre-resolve the domain
-              const domain = baseUrl.replace("https://", "").split("/")[0];
-              await this.resolveDomain(domain);
-
-              response = await axios.get<OKXResponse>(
-                `${baseUrl}/market/ticker`,
-                {
-                  params: {
-                    instId: okxPair,
-                  },
-                  headers: {
-                    ...headers,
-                    Host: domain,
-                  },
-                  timeout: 5000,
-                  maxRedirects: 5,
-                  validateStatus: (status) => status < 500,
-                }
-              );
-
-              // If successful, break the loop
-              if (response?.data?.code === "0") {
-                console.log(`Successfully fetched from ${baseUrl} for ${pair}`);
-                break;
+          try {
+            console.log(`Attempting to fetch from ${this.baseUrl} for ${pair}`);
+            response = await axios.get<OKXResponse>(
+              `${this.baseUrl}/market/ticker`,
+              {
+                params: {
+                  instId: okxPair,
+                },
+                headers: {
+                  ...headers,
+                  "Sec-Fetch-Site": "same-origin",
+                },
+                timeout: 5000,
+                maxRedirects: 5,
+                validateStatus: (status) => status < 500,
               }
-            } catch (urlError) {
-              console.log(
-                `Failed to fetch from ${baseUrl} for ${pair}:`,
-                urlError.message
-              );
-              // Continue to next URL if this one failed
-              continue;
-            }
-          }
+            );
 
-          // If we still don't have a valid response after trying all URLs, throw error
-          if (response?.data?.code !== "0") {
-            throw new Error(`All URLs failed for ${pair}`);
+            if (response?.data?.code !== "0") {
+              throw new Error(`Invalid response code: ${response?.data?.code}`);
+            }
+          } catch (error) {
+            console.error(
+              `Failed to fetch from ${this.baseUrl} for ${pair}:`,
+              error.message
+            );
+            throw error;
           }
 
           // If we get here, the request was successful
