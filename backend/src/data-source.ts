@@ -9,5 +9,5 @@ export const AppDataSource = new DataSource({
   url: process.env.DATABASE_URL,
   entities: [Price],
   migrations: [__dirname + "/migrations/*.{js,ts}"],
-  ssl: isProduction ? { rejectUnauthorized: false } : false,
+  ssl: false,
 });
