@@ -84,8 +84,8 @@ export class OKXExchange extends AbstractExchange {
         // Setup WebSocket with custom options
         this.ws = new WebSocket(this.wsUrl, {
           agent: new https.Agent({
-            rejectUnauthorized: true, // Verify SSL certificates
-            timeout: 30000, // 30 second timeout
+            rejectUnauthorized: true,
+            timeout: 30000,
           }),
           handshakeTimeout: 30000,
           timeout: 30000,

@@ -241,24 +241,19 @@ async function startServer() {
     );
     await priceService.start();
 
-    // Start HTTP server
+    // Create HTTP server
     const PORT = parseInt(process.env.PORT || "4000");
-    const server = app.listen(PORT, "0.0.0.0", () => {
-      console.log(`HTTP server running on 0.0.0.0:${PORT}`);
-    });
+    const server = http.createServer(app);
 
-    // Create a separate HTTP server for WebSocket
-    const WS_PORT = parseInt(process.env.WS_PORT || "3001");
-    const wsServer = http.createServer();
-
-    // Create WebSocket server on its own port
+    // Create WebSocket server on the same HTTP server
     const wss = new WebSocket.Server({
-      server: wsServer,
+      server: server,
       path: "/ws",
     });
 
-    wsServer.listen(WS_PORT, "0.0.0.0", () => {
-      console.log(`WebSocket server running on 0.0.0.0:${WS_PORT}`);
+    // Start the server
+    server.listen(PORT, "0.0.0.0", () => {
+      console.log(`HTTP and WebSocket server running on 0.0.0.0:${PORT}`);
     });
 
     // Handle WebSocket connections

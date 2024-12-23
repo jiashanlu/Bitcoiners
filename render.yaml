@@ -24,7 +24,7 @@ services:
   - type: web
     name: bitcoiners-backend
     env: node
-    region: singapore
+    region: oregon
     buildCommand: |
       cd backend
       npm ci
@@ -40,17 +40,11 @@ services:
       name: tmp
       mountPath: /tmp
       sizeGB: 1
-    dns:
-      - 8.8.8.8 # Google DNS
-      - 8.8.4.4 # Google DNS backup
-      - 1.1.1.1 # Cloudflare DNS
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 4000
-      - key: WS_PORT
-        value: 3001
       - key: DATABASE_URL
         value: postgresql://bitcoiners:cuh6gpBTE8kWRk2IVZPTUjEeZ63tCmLk@dpg-ctii6mlds78s73eg1t2g-a.singapore-postgres.render.com/bitcoiners_gxuf
       - key: REDIS_URL
@@ -70,4 +64,4 @@ databases:
     plan: free
     ipAllowList:
       - source: 0.0.0.0/0
-    region: singapore
+    region: oregon
