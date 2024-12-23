@@ -13,7 +13,8 @@ services:
       - "5173:5173"
     environment:
       - NODE_ENV=development
-      - VITE_WS_URL=ws://localhost:5173/ws
+      - VITE_API_URL=http://192.168.4.59:4000/api
+      - VITE_WS_URL=ws://192.168.4.59:3001/ws
     command: npm run dev -- --host 0.0.0.0
     depends_on:
       - backend

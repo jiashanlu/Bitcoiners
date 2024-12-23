@@ -29,6 +29,7 @@ services:
       cd backend
       npm ci
       npm run build
+      npm run migration:run
     startCommand: cd backend && node dist/index.js
     healthCheckPath: /health
     plan: starter

@@ -136,6 +136,8 @@ async function connectWithRetry(maxRetries = 10, delay = 10000) {
         entities: [Price],
         synchronize: process.env.NODE_ENV !== "production", // Only in development
         logging: process.env.NODE_ENV !== "production",
+        migrations: [__dirname + "/migrations/*.js"], // Add migrations support
+        migrationsRun: process.env.NODE_ENV === "production", // Run migrations in production
         ssl: useSSL ? { rejectUnauthorized: false } : false,
         connectTimeoutMS: 30000, // Increased timeout for potential DNS delays
         poolSize: 20,
@@ -228,10 +230,15 @@ async function startServer() {
       throw new Error("REDIS_URL environment variable is not set");
     }
 
-    // Validate Redis URL format
-    if (!redisUrl.startsWith("rediss://")) {
+    // Validate Redis URL format based on environment
+    const isProduction = process.env.NODE_ENV === "production";
+    if (isProduction && !redisUrl.startsWith("rediss://")) {
       throw new Error(
-        "Invalid REDIS_URL format. Must start with rediss:// for TLS connection"
+        "Invalid REDIS_URL format in production. Must start with rediss:// for TLS connection"
+      );
+    } else if (!isProduction && !redisUrl.startsWith("redis://")) {
+      throw new Error(
+        "Invalid REDIS_URL format in development. Must start with redis://"
       );
     }
 
@@ -246,9 +253,9 @@ async function startServer() {
       throw new Error("Invalid Redis URL format");
     }
 
-    // Redis connection options with TLS
+    // Redis connection options based on environment
     const redisOptions = {
-      tls: { rejectUnauthorized: false },
+      tls: isProduction ? { rejectUnauthorized: false } : undefined,
       retryStrategy: (times: number) => {
         const delay = Math.min(times * 1000, 30000);
         console.log(`Redis retry attempt ${times}, waiting ${delay}ms`);
