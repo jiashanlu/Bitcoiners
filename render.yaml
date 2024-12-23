@@ -47,9 +47,9 @@ services:
       - key: PORT
         value: 4000
       - key: DATABASE_URL
-        value: postgresql://bitcoiners:cuh6gpBTE8kWRk2IVZPTUjEeZ63tCmLk@dpg-ctii6mlds78s73eg1t2g-a.singapore-postgres.render.com/bitcoiners_gxuf
+        value: postgresql://bitcoiners:J166uZpcJhEQZrbMGNZ5JllPnwGgjfUL@dpg-ctkl64l2ng1s73bqr0l0-a/bitcoiners_2vk9
       - key: REDIS_URL
-        value: rediss://red-ctii6mlds78s73eg1t20:1H1Kp9EXXGwvUM8IAh6dFTGTmdlXFcap@oregon-redis.render.com:6379
+        value: redis://red-ctkl64l2ng1s73bqr0kg:6379
 
   - type: redis
     name: bitcoiners-redis
