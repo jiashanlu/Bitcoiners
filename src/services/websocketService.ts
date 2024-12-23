@@ -9,7 +9,7 @@ interface WebSocketMessage {
 
 class WebSocketService {
   private ws: WebSocket | null = null;
-  private maxReconnectAttempts: number = Infinity; // Keep trying to reconnect
+  private maxReconnectAttempts = Infinity; // Keep trying to reconnect
   private reconnectAttempts: number = 0;
   private callbacks: Map<TradingPair, Set<PriceUpdateCallback>> = new Map();
   private readonly wsUrl: string;
