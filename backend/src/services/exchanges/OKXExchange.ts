@@ -2,6 +2,10 @@ import axios from "axios";
 import { ExchangePrice } from "../../types/fees";
 import { AbstractExchange, TradingPair } from "./BaseExchange";
 import { getDefaultFees, getFeesByVolume } from "../../config/fees";
+import dns from "dns";
+import { promisify } from "util";
+
+const lookup = promisify(dns.lookup);
 
 interface OKXResponse {
   code: string;
@@ -19,13 +23,9 @@ interface OKXResponse {
 }
 
 export class OKXExchange extends AbstractExchange {
-  // Using IP addresses directly to avoid DNS issues
   private readonly baseUrls: string[] = [
     "https://www.okx.com/api/v5",
     "https://api.okx.com/api/v5",
-    "https://18.178.147.205/api/v5", // okx.com IP
-    "https://54.168.136.243/api/v5", // api.okx.com IP
-    "https://52.193.204.146/api/v5", // Another okx.com IP
   ];
   private readonly pairMapping: Record<TradingPair, string> = {
     "BTC/AED": "BTC-AED",
@@ -34,6 +34,18 @@ export class OKXExchange extends AbstractExchange {
 
   constructor() {
     super("OKX");
+  }
+
+  private async resolveDomain(domain: string): Promise<string> {
+    try {
+      const dnsResult = await lookup(
+        domain.replace("https://", "").split("/")[0]
+      );
+      return dnsResult.address;
+    } catch (error) {
+      console.error(`DNS resolution failed for ${domain}:`, error);
+      throw error;
+    }
   }
 
   async fetchPrice(pair: TradingPair): Promise<ExchangePrice | null> {
@@ -46,14 +58,14 @@ export class OKXExchange extends AbstractExchange {
         "Cache-Control": "no-cache",
         Connection: "keep-alive",
         "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "sec-ch-ua":
           '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
         "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": '"macOS"',
+        "sec-ch-ua-platform": '"Windows"',
         "Sec-Fetch-Dest": "empty",
         "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Site": "cross-site",
+        "Sec-Fetch-Site": "same-site",
         Pragma: "no-cache",
         Origin: "https://www.okx.com",
         Referer: "https://www.okx.com/",
@@ -79,6 +91,11 @@ export class OKXExchange extends AbstractExchange {
           for (const baseUrl of this.baseUrls) {
             try {
               console.log(`Attempting to fetch from ${baseUrl} for ${pair}`);
+
+              // Pre-resolve the domain
+              const domain = baseUrl.replace("https://", "").split("/")[0];
+              await this.resolveDomain(domain);
+
               response = await axios.get<OKXResponse>(
                 `${baseUrl}/market/ticker`,
                 {
@@ -87,22 +104,16 @@ export class OKXExchange extends AbstractExchange {
                   },
                   headers: {
                     ...headers,
-                    "Sec-Fetch-Site": baseUrl.includes("okx.com")
-                      ? "same-origin"
-                      : "cross-site",
-                    Host: baseUrl.includes("api.okx")
-                      ? "api.okx.com"
-                      : "www.okx.com",
+                    Host: domain,
                   },
-                  timeout: 10000,
-                  httpsAgent: new (require("https").Agent)({
-                    rejectUnauthorized: false, // Allow self-signed certs
-                  }),
+                  timeout: 5000,
+                  maxRedirects: 5,
+                  validateStatus: (status) => status < 500,
                 }
               );
 
               // If successful, break the loop
-              if (response?.data) {
+              if (response?.data?.code === "0") {
                 console.log(`Successfully fetched from ${baseUrl} for ${pair}`);
                 break;
               }
@@ -116,8 +127,8 @@ export class OKXExchange extends AbstractExchange {
             }
           }
 
-          // If we still don't have a response after trying all URLs, throw error
-          if (!response) {
+          // If we still don't have a valid response after trying all URLs, throw error
+          if (response?.data?.code !== "0") {
             throw new Error(`All URLs failed for ${pair}`);
           }
 
