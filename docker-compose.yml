@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   frontend:
     build:
@@ -13,8 +11,8 @@ services:
       - "5173:5173"
     environment:
       - NODE_ENV=development
-      - VITE_API_URL=http://192.168.4.59:4000/api
-      - VITE_WS_URL=ws://192.168.4.59:3001/ws
+      - VITE_API_URL=/api
+      - VITE_WS_URL=/ws
     command: npm run dev -- --host 0.0.0.0
     depends_on:
       - backend
@@ -35,11 +33,9 @@ services:
       - /app/node_modules
     ports:
       - "4000:4000"
-      - "3001:3001" # Added WebSocket port
     environment:
       - NODE_ENV=development
       - PORT=4000
-      - WS_PORT=3001 # Added WebSocket port env var
       - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/bitcoiners
       - REDIS_URL=redis://redis:6379
       - UPDATE_INTERVAL=10000
@@ -48,9 +44,11 @@ services:
       redis:
         condition: service_started
       postgres:
-        condition: service_started
+        condition: service_healthy
     networks:
       - app_network
+    security_opt:
+      - seccomp=unconfined
 
   redis:
     image: redis:alpine

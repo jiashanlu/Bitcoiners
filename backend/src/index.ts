@@ -44,7 +44,15 @@ async function resolveHostWithRetry(
 }
 
 const app = express();
-app.use(cors());
+// CORS configuration for both HTTP and WebSocket
+const corsOptions = {
+  origin: true, // Allow all origins
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 let priceService: PriceService;
@@ -81,8 +89,9 @@ async function connectWithRetry(maxRetries = 10, delay = 10000) {
     try {
       console.log(`Database connection attempt ${attempt}/${maxRetries}`);
 
-      // Initialize the data source
+      // Initialize the data source with migrations
       await AppDataSource.initialize();
+      await AppDataSource.runMigrations();
 
       // Verify database connection and version
       const [timeResult, versionResult] = await Promise.all([
@@ -94,7 +103,7 @@ async function connectWithRetry(maxRetries = 10, delay = 10000) {
         "Connected to PostgreSQL version:",
         versionResult[0].server_version
       );
-      console.log("Database connection established successfully");
+      console.log("Database connection and migrations completed successfully");
       return AppDataSource;
     } catch (error) {
       console.error(`Database connection attempt ${attempt} failed:`, {
@@ -245,13 +254,38 @@ async function startServer() {
     const PORT = parseInt(process.env.PORT || "4000");
     const server = http.createServer(app);
 
-    // Create WebSocket server on the same HTTP server
+    // Create WebSocket server with CORS options
     const wss = new WebSocket.Server({
-      server: server,
+      noServer: true,
       path: "/ws",
+      verifyClient: (info: { origin: string; secure: boolean; req: any }) => {
+        // Log the verification attempt
+        console.log("Verifying WebSocket client connection from origin:", info.origin);
+        return true; // Accept all connections for now
+      }
     });
 
-    // Start the server
+    // Handle upgrade
+    server.on("upgrade", (request, socket, head) => {
+      console.log("Received upgrade request for:", request.url);
+      
+      if (request.url === "/ws") {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+          console.log("WebSocket connection established");
+          wss.emit("connection", ws, request);
+        });
+      } else {
+        console.log("Invalid WebSocket path:", request.url);
+        socket.destroy();
+      }
+    });
+
+    // Handle WebSocket server errors
+    wss.on("error", (error) => {
+      console.error("WebSocket server error:", error);
+    });
+
+    // Start the HTTP server (WebSocket server will share the same port)
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`HTTP and WebSocket server running on 0.0.0.0:${PORT}`);
     });

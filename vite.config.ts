@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => ({
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
       "/ws": {
-        target: "ws://backend:3001",
+        target: "ws://backend:4000",
         ws: true,
         changeOrigin: true,
       },

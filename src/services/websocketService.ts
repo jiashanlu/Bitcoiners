@@ -16,10 +16,8 @@ class WebSocketService {
   private currentPair: TradingPair = "BTC/AED";
 
   constructor() {
-    // Use environment variable for WebSocket URL with fallback
-    const baseUrl =
-      import.meta.env.VITE_WS_URL ||
-      window.location.origin.replace(/^http/, "ws");
+    // Use environment variable for WebSocket URL with fallback to current host
+    const baseUrl = window.location.origin.replace(/^http/, "ws");
     this.wsUrl = baseUrl.endsWith("/ws") ? baseUrl : `${baseUrl}/ws`;
 
     console.log("Initializing WebSocket with URL:", this.wsUrl);
