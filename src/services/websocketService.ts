@@ -17,8 +17,15 @@ class WebSocketService {
 
   constructor() {
     // Use environment variable for WebSocket URL with fallback to current host
-    const baseUrl = window.location.origin.replace(/^http/, "ws");
-    this.wsUrl = baseUrl.endsWith("/ws") ? baseUrl : `${baseUrl}/ws`;
+    const wsUrl = import.meta.env.VITE_WS_URL;
+    if (wsUrl && wsUrl.startsWith('wss://')) {
+      // Production: Use the configured WebSocket URL
+      this.wsUrl = wsUrl;
+    } else {
+      // Development: Use relative path from current host
+      const baseUrl = window.location.origin.replace(/^http/, "ws");
+      this.wsUrl = baseUrl.endsWith("/ws") ? baseUrl : `${baseUrl}/ws`;
+    }
 
     console.log("Initializing WebSocket with URL:", this.wsUrl);
     this.connect();

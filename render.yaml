@@ -17,9 +17,9 @@ services:
       - key: NODE_ENV
         value: production
       - key: VITE_API_URL
-        value: https://bitcoiners-backend.onrender.com/api
+        value: https://www.bitcoiners.ae/api
       - key: VITE_WS_URL
-        value: wss://bitcoiners-backend.onrender.com/ws
+        value: wss://www.bitcoiners.ae/ws
 
   - type: web
     name: bitcoiners-backend
