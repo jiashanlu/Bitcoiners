@@ -30,8 +30,6 @@ services:
       npm ci
       npm run build
       export NODE_ENV=production
-      export DATABASE_URL=$DATABASE_URL
-      npm run migration:run
     startCommand: cd backend && node dist/index.js
     healthCheckPath: /health
     plan: starter
@@ -45,8 +43,6 @@ services:
         value: production
       - key: PORT
         value: 4000
-      - key: DATABASE_URL
-        value: postgres://bitcoiners:J166uZpcJhEQZrbMGNZ5JllPnwGgjfUL@dpg-ctkl64l2ng1s73bqr0l0-a.oregon-postgres.render.com/bitcoiners_2vk9?sslmode=no-verify
       - key: REDIS_URL
         value: rediss://red-ctkl64l2ng1s73bqr0kg:5mmUe6JKpYRzMlioIqGYaeYt6GHSkb3y@oregon-redis.render.com:6379
 
@@ -56,12 +52,3 @@ services:
       - source: 0.0.0.0/0
     plan: free
     maxmemoryPolicy: noeviction
-
-databases:
-  - name: bitcoiners-db
-    databaseName: bitcoiners
-    user: bitcoiners
-    plan: free
-    ipAllowList:
-      - source: 0.0.0.0/0
-    region: oregon

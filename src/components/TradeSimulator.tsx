@@ -45,8 +45,6 @@ export const TradeSimulator: React.FC<TradeSimulatorProps> = ({
 }) => {
   const [amount, setAmount] = useState<number>(1);
 
-  const isUSDT = prices.length > 0 && prices[0].pair === "USDT/AED";
-
   const bestTrade = useMemo<BestTrade | null>(() => {
     if (!prices.length) return null;
 
@@ -90,21 +88,12 @@ export const TradeSimulator: React.FC<TradeSimulatorProps> = ({
     return price.toLocaleString("en-AE", {
       style: "currency",
       currency: "AED",
-      minimumFractionDigits: isUSDT ? 5 : 2,
-      maximumFractionDigits: isUSDT ? 5 : 2,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     });
   };
 
   const getInputConfig = () => {
-    if (isUSDT) {
-      return {
-        min: 1000,
-        step: 1000,
-        precision: 0,
-        defaultValue: 1000,
-        label: "USDT Amount",
-      };
-    }
     return {
       min: 0.0001,
       step: 0.1,
@@ -183,7 +172,7 @@ export const TradeSimulator: React.FC<TradeSimulatorProps> = ({
               <StatLabel color="#009739">Best Buy At</StatLabel>
               <StatNumber color="#009739">{bestTrade.buyExchange}</StatNumber>
               <StatHelpText color="#4A5568" _dark={{ color: "#A0AEC0" }}>
-                {formatPrice(bestTrade.buyPrice)} / {isUSDT ? "USDT" : "BTC"}
+                {formatPrice(bestTrade.buyPrice)} / BTC
               </StatHelpText>
             </Stat>
           </Box>
@@ -203,7 +192,7 @@ export const TradeSimulator: React.FC<TradeSimulatorProps> = ({
               <StatLabel color="#CE1126">Best Sell At</StatLabel>
               <StatNumber color="#CE1126">{bestTrade.sellExchange}</StatNumber>
               <StatHelpText color="#4A5568" _dark={{ color: "#A0AEC0" }}>
-                {formatPrice(bestTrade.sellPrice)} / {isUSDT ? "USDT" : "BTC"}
+                {formatPrice(bestTrade.sellPrice)} / BTC
               </StatHelpText>
             </Stat>
           </Box>

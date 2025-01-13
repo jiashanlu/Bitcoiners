@@ -22,7 +22,7 @@ export class BitOasisExchange extends AbstractExchange {
   async fetchPrice(pair: TradingPair): Promise<ExchangePrice | null> {
     try {
       // Convert our standard pair format to BitOasis format
-      const bitOasisPair = pair === "BTC/AED" ? "BTC-AED" : "USDT-AED";
+      const bitOasisPair = "BTC-AED";
 
       const response = await axios.get<BitOasisResponse>(
         `${this.baseUrl}/exchange/ticker/${bitOasisPair}`
@@ -45,13 +45,13 @@ export class BitOasisExchange extends AbstractExchange {
         price: price,
         bid: bid,
         ask: ask,
-        pair: pair,
+        pair: "BTC/AED",
         lastUpdated: new Date().toISOString(),
         change24h: response.data.ticker.daily_percentage_change || 0,
         volume24h: response.data.volume_24h || 0,
       });
     } catch (error) {
-      console.error(`BitOasis API Error for ${pair}:`, error);
+      console.error(`BitOasis API Error for BTC/AED:`, error);
       return null;
     }
   }

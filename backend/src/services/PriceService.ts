@@ -10,16 +10,14 @@ import { BaseExchange, TradingPair } from "./exchanges/BaseExchange";
 
 export class PriceService {
   private redis: Redis;
-  private priceRepository: Repository<Price>;
   private updateInterval: NodeJS.Timeout | null = null;
   private readonly UPDATE_INTERVAL = 15000; // 15 seconds
   private exchanges: BaseExchange[] = [];
   private currentVolume: number = 0;
-  private readonly PAIRS: TradingPair[] = ["BTC/AED", "USDT/AED"];
+  private readonly PAIRS: TradingPair[] = ["BTC/AED"];
 
-  constructor(redis: Redis, priceRepository: Repository<Price>) {
+  constructor(redis: Redis) {
     this.redis = redis;
-    this.priceRepository = priceRepository;
 
     // Initialize exchanges
     this.exchanges = [
@@ -58,32 +56,6 @@ export class PriceService {
     await this.updatePrices(); // Trigger immediate price update with new volume
   }
 
-  private async savePriceToDatabase(priceData: ExchangePrice) {
-    try {
-      const price = new Price();
-      const now = new Date();
-
-      price.exchange = priceData.exchange;
-      price.bid = priceData.bid;
-      price.ask = priceData.ask;
-      price.price = priceData.price;
-      price.pair = priceData.pair;
-      price.timestamp = now;
-      price.createdAt = now;
-
-      const savedPrice = await this.priceRepository.save(price);
-      console.log(
-        `Saved ${priceData.exchange} ${priceData.pair} price to database with ID: ${savedPrice.id}`
-      );
-      return true;
-    } catch (error) {
-      console.error(
-        `Error saving ${priceData.exchange} ${priceData.pair} price to database:`,
-        error
-      );
-      return false;
-    }
-  }
 
   private async updatePrices() {
     try {
@@ -121,10 +93,6 @@ export class PriceService {
           .filter((price): price is ExchangePrice => price !== null);
 
         if (prices.length > 0) {
-          // Save raw prices to database
-          for (const price of prices) {
-            await this.savePriceToDatabase(price);
-          }
 
           // Sort prices by exchange name
           const sortedPrices = prices.sort((a, b) =>

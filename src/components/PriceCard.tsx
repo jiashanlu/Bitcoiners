@@ -24,59 +24,13 @@ export const PriceCard = ({
   showFeeSpread,
 }: PriceCardProps): JSX.Element => {
   const formatPrice = (price: number) => {
-    const decimals = data.pair === "USDT/AED" ? 5 : 2;
     return price.toLocaleString("en-AE", {
       style: "currency",
       currency: "AED",
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
     });
   };
-
-  // Handle Rain exchange with USDT pair
-  if (data.exchange === "Rain" && data.pair === "USDT/AED") {
-    return (
-      <Box
-        p={4}
-        borderRadius="xl"
-        bg="white"
-        boxShadow="sm"
-        minW="300px"
-        h="full"
-        borderWidth="1px"
-        borderColor="gray.300"
-        _dark={{
-          bg: "#1A1A1A",
-          borderColor: "gray.600",
-        }}
-      >
-        <Flex justify="space-between" align="center" mb={4}>
-          <Text
-            fontSize="lg"
-            fontWeight="bold"
-            color="#1A1A1A"
-            _dark={{ color: "white" }}
-          >
-            {data.exchange}
-          </Text>
-          <Badge bg="#F7931A" color="white">
-            {data.pair}
-          </Badge>
-        </Flex>
-        <Box
-          p={8}
-          display="flex"
-          alignItems="center"
-          justifyContent="center"
-          textAlign="center"
-        >
-          <Text fontSize="lg" color="#4A5568" _dark={{ color: "#A0AEC0" }}>
-            Pair not available
-          </Text>
-        </Box>
-      </Box>
-    );
-  }
 
   const currentFee = feeType === "maker" ? data.fees.maker : data.fees.taker;
   const effectiveBid = data.bid * (1 - currentFee);

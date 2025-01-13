@@ -37,9 +37,8 @@ export class OKXExchange extends AbstractExchange {
   private priceData: Map<string, OKXTickerData> = new Map();
   private connectionPromise: Promise<void> | null = null;
 
-  private readonly pairMapping: Record<TradingPair, string> = {
+  private readonly pairMapping = {
     "BTC/AED": "BTC-AED",
-    "USDT/AED": "USDT-AED",
   };
 
   constructor() {
@@ -100,19 +99,17 @@ export class OKXExchange extends AbstractExchange {
 
           this.ws.on("open", () => {
             console.log("OKX WebSocket connected");
-            // Subscribe to all our pairs
-            Object.values(this.pairMapping).forEach((pair) => {
-              const subscribeMsg = {
-                op: "subscribe",
-                args: [
-                  {
-                    channel: "tickers",
-                    instId: pair,
-                  },
-                ],
-              };
-              this.ws?.send(JSON.stringify(subscribeMsg));
-            });
+            // Subscribe to BTC/AED pair
+            const subscribeMsg = {
+              op: "subscribe",
+              args: [
+                {
+                  channel: "tickers",
+                  instId: "BTC-AED",
+                },
+              ],
+            };
+            this.ws?.send(JSON.stringify(subscribeMsg));
             resolve();
           });
 
@@ -185,11 +182,11 @@ export class OKXExchange extends AbstractExchange {
         await this.connectionPromise;
       }
 
-      const okxPair = this.pairMapping[pair];
+      const okxPair = this.pairMapping["BTC/AED"];
       const ticker = this.priceData.get(okxPair);
 
       if (!ticker) {
-        console.log(`No ticker data available for ${pair} (${okxPair})`);
+        console.log(`No ticker data available for BTC/AED (${okxPair})`);
         return null;
       }
 
@@ -204,13 +201,13 @@ export class OKXExchange extends AbstractExchange {
         price: price,
         bid: bid,
         ask: ask,
-        pair: pair,
+        pair: "BTC/AED",
         lastUpdated: new Date(parseInt(ticker.ts)).toISOString(),
         change24h: change24h,
         volume24h: parseFloat(ticker.volCcy24h),
       });
     } catch (error) {
-      console.error(`OKX WebSocket Error for ${pair}:`, error);
+      console.error(`OKX WebSocket Error for BTC/AED:`, error);
       return null;
     }
   }

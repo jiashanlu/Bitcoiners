@@ -1,10 +1,7 @@
 import "reflect-metadata";
 import express from "express";
 import cors from "cors";
-import { DataSource } from "typeorm";
-import { AppDataSource } from "./data-source";
 import Redis from "ioredis";
-import { Price } from "./models/Price";
 import { PriceService } from "./services/PriceService";
 import WebSocket from "ws";
 import { TradingPair } from "./services/exchanges/BaseExchange";
@@ -60,7 +57,7 @@ app.use(express.json());
 let priceService: PriceService;
 
 // Define supported trading pairs
-const SUPPORTED_PAIRS: TradingPair[] = ["BTC/AED", "USDT/AED"];
+const SUPPORTED_PAIRS: TradingPair[] = ["BTC/AED"];
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -84,51 +81,6 @@ function getRedactedUrl(url: string): string {
   } catch (error) {
     return "Invalid URL";
   }
-}
-
-async function connectWithRetry(maxRetries = 10, delay = 10000) {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      console.log(`Database connection attempt ${attempt}/${maxRetries}`);
-
-      // Initialize the data source with migrations
-      await AppDataSource.initialize();
-      await AppDataSource.runMigrations();
-
-      // Verify database connection and version
-      const [timeResult, versionResult] = await Promise.all([
-        AppDataSource.query("SELECT NOW()"),
-        AppDataSource.query("SHOW server_version"),
-      ]);
-
-      console.log(
-        "Connected to PostgreSQL version:",
-        versionResult[0].server_version
-      );
-      console.log("Database connection and migrations completed successfully");
-      return AppDataSource;
-    } catch (error) {
-      console.error(`Database connection attempt ${attempt} failed:`, {
-        error: error.message,
-        code: (error as any).code,
-        errno: (error as any).errno,
-        syscall: (error as any).syscall,
-        hostname: (error as any).hostname,
-      });
-      if (attempt === maxRetries) {
-        throw new Error(
-          `Failed to connect to database after ${maxRetries} attempts`
-        );
-      }
-      // Add exponential backoff
-      const currentDelay = Math.min(delay * Math.pow(2, attempt - 1), 30000);
-      console.log(
-        `Waiting ${currentDelay / 1000} seconds before next attempt...`
-      );
-      await new Promise((resolve) => setTimeout(resolve, currentDelay));
-    }
-  }
-  throw new Error("Failed to connect to database"); // Fallback error
 }
 
 async function checkServiceHealth(
@@ -156,9 +108,6 @@ async function checkServiceHealth(
 
 async function startServer() {
   try {
-    // Connect to database with retry logic
-    const connection = await connectWithRetry();
-
     // Get Redis URL from environment
     const redisUrl = process.env.REDIS_URL;
     if (!redisUrl) {
@@ -248,7 +197,6 @@ async function startServer() {
     // Initialize price service with the client connection
     priceService = new PriceService(
       redisClient,
-      connection.getRepository(Price)
     );
     await priceService.start();
 

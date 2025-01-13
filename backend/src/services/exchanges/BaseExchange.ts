@@ -1,9 +1,9 @@
 import { ExchangePrice } from "../../types/fees";
 
-export type TradingPair = "BTC/AED" | "USDT/AED";
+export type TradingPair = "BTC/AED";
 
 export interface BaseExchange {
-  fetchPrice(pair: TradingPair): Promise<ExchangePrice | null>;
+  fetchPrice(pair: string): Promise<ExchangePrice | null>;
   getName(): string;
   getDefaultFees(): { maker: number; taker: number };
   getFeesByVolume(volume: number): { maker: number; taker: number };
@@ -14,7 +14,7 @@ export interface BaseExchange {
 export abstract class AbstractExchange implements BaseExchange {
   protected constructor(protected readonly name: string) {}
 
-  abstract fetchPrice(pair: TradingPair): Promise<ExchangePrice | null>;
+  abstract fetchPrice(pair: string): Promise<ExchangePrice | null>;
 
   getName(): string {
     return this.name;

@@ -24,11 +24,11 @@ export class MultibankExchange extends AbstractExchange {
     this.ws.on("open", () => {
       console.log("Connected to Multibank WebSocket");
       if (this.ws) {
-        // Subscribe to both BTC and USDT pairs
+        // Subscribe to BTC/AED pair
         this.ws.send(
           JSON.stringify({
             method: "subscribe",
-            events: ["OB.BTC_AED", "OB.USDT_AED"],
+            events: ["OB.BTC_AED"],
           })
         );
       }
@@ -37,33 +37,27 @@ export class MultibankExchange extends AbstractExchange {
     this.ws.on("message", (data: WebSocket.Data) => {
       try {
         const message = JSON.parse(data.toString());
-        if (message.method === "stream") {
-          // Handle both BTC and USDT pairs
-          if (
-            message.event === "OB.BTC_AED" ||
-            message.event === "OB.USDT_AED"
-          ) {
-            const firstBid = message.data.bids[0][0];
-            const lastAsk = message.data.asks[message.data.asks.length - 1][0];
-            const price = (firstBid + lastAsk) / 2;
+        if (message.method === "stream" && message.event === "OB.BTC_AED") {
+          const firstBid = message.data.bids[0][0];
+          const lastAsk = message.data.asks[message.data.asks.length - 1][0];
+          const price = (firstBid + lastAsk) / 2;
 
-            // Convert event name to pair (e.g., "OB.BTC_AED" -> "BTC/AED")
-            const pair = message.event.replace("OB.", "").replace("_", "/");
+          // Convert event name to pair (e.g., "OB.BTC_AED" -> "BTC/AED")
+          const pair = message.event.replace("OB.", "").replace("_", "/");
 
-            this.lastPrices.set(
-              pair,
-              this.formatPrice({
-                exchange: this.getName(),
-                bid: firstBid,
-                ask: lastAsk,
-                price: price,
-                pair: pair,
-                lastUpdated: new Date().toISOString(),
-                change24h: 0, // Multibank doesn't provide this information
-                volume24h: 0, // Multibank doesn't provide this information
-              })
-            );
-          }
+          this.lastPrices.set(
+            pair,
+            this.formatPrice({
+              exchange: this.getName(),
+              bid: firstBid,
+              ask: lastAsk,
+              price: price,
+              pair: pair,
+              lastUpdated: new Date().toISOString(),
+              change24h: 0, // Multibank doesn't provide this information
+              volume24h: 0, // Multibank doesn't provide this information
+            })
+          );
         }
       } catch (error) {
         console.error("Error processing Multibank message:", error);
