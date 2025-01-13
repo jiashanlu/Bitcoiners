@@ -279,6 +279,7 @@ async function startServer() {
     // Handle upgrade
     server.on("upgrade", (request, socket, head) => {
       console.log("Received upgrade request for:", request.url);
+      console.log("Upgrade request headers:", request.headers);
       
       if (request.url === "/ws") {
         wss.handleUpgrade(request, socket, head, (ws) => {

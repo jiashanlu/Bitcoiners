@@ -12,7 +12,7 @@ services:
     environment:
       - NODE_ENV=development
       - VITE_API_URL=/api
-      - VITE_WS_URL=/ws
+      - VITE_WS_URL=ws://backend:4000/ws
     command: npm run dev -- --host 0.0.0.0
     depends_on:
       - backend
