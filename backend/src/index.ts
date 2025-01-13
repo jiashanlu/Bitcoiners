@@ -46,7 +46,9 @@ async function resolveHostWithRetry(
 const app = express();
 // CORS configuration for both HTTP and WebSocket
 const corsOptions = {
-  origin: true, // Allow all origins
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://www.bitcoiners.ae', 'https://bitcoiners.ae']
+    : true,
   methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"],
   credentials: true,
@@ -254,14 +256,23 @@ async function startServer() {
     const PORT = parseInt(process.env.PORT || "4000");
     const server = http.createServer(app);
 
-    // Create WebSocket server with CORS options
+    // Create WebSocket server
     const wss = new WebSocket.Server({
       noServer: true,
       path: "/ws",
       verifyClient: (info: { origin: string; secure: boolean; req: any }) => {
-        // Log the verification attempt
+        const isProduction = process.env.NODE_ENV === 'production';
         console.log("Verifying WebSocket client connection from origin:", info.origin);
-        return true; // Accept all connections for now
+        
+        if (isProduction) {
+          const allowedOrigins = ['https://www.bitcoiners.ae', 'https://bitcoiners.ae'];
+          if (!allowedOrigins.includes(info.origin)) {
+            console.log(`Rejected WebSocket connection from unauthorized origin: ${info.origin}`);
+            return false;
+          }
+        }
+        
+        return true;
       }
     });
 
@@ -285,7 +296,7 @@ async function startServer() {
       console.error("WebSocket server error:", error);
     });
 
-    // Start the HTTP server (WebSocket server will share the same port)
+    // Start the HTTP server
     server.listen(PORT, "0.0.0.0", () => {
       console.log(`HTTP and WebSocket server running on 0.0.0.0:${PORT}`);
     });
