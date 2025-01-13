@@ -1,6 +1,4 @@
 import { Redis } from "ioredis";
-import { Repository } from "typeorm";
-import { Price } from "../models/Price";
 import { ExchangePrice } from "../types/fees";
 import { OKXExchange } from "./exchanges/OKXExchange";
 import { BitOasisExchange } from "./exchanges/BitOasisExchange";
