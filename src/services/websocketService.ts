@@ -2,11 +2,6 @@ import { ExchangePrice, TradingPair } from "../types/exchange";
 
 type PriceUpdateCallback = (prices: ExchangePrice[]) => void;
 
-interface WebSocketMessage {
-  pair: TradingPair;
-  prices: ExchangePrice[];
-}
-
 class WebSocketService {
   private ws: WebSocket | null = null;
   private reconnectAttempts: number = 0;
