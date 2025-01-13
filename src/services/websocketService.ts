@@ -54,10 +54,12 @@ class WebSocketService {
 
       this.ws.onmessage = (event) => {
         try {
-          const message: WebSocketMessage = JSON.parse(event.data);
+          const message = JSON.parse(event.data);
           console.log("Received message:", message);
 
-          if (message.pair && Array.isArray(message.prices)) {
+          if (message.type === "priceUpdate" && Array.isArray(message.payload)) {
+              this.notifySubscribers("BTC/AED", message.payload);
+          } else if (message.pair && Array.isArray(message.prices)) {
             this.notifySubscribers(message.pair, message.prices);
           }
         } catch (error) {

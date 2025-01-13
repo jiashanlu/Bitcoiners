@@ -197,8 +197,7 @@ async function startServer() {
     priceService = new PriceService(
       redisClient,
     );
-    await priceService.start();
-
+    
     // Create HTTP server
     const PORT = parseInt(process.env.PORT || "4000");
     const server = http.createServer(app);
@@ -222,6 +221,9 @@ async function startServer() {
         return true;
       }
     });
+
+    priceService.setWebSocketServer(wss);
+    await priceService.start();
 
     // Handle upgrade
     server.on("upgrade", (request, socket, head) => {
@@ -253,21 +255,6 @@ async function startServer() {
     wss.on("connection", (ws: WebSocket) => {
       console.log("Client connected to WebSocket");
 
-      // Send initial prices for all pairs when client connects
-      SUPPORTED_PAIRS.forEach(async (pair) => {
-        const cacheKey = `latest_prices_${pair.replace("/", "_")}`;
-        const prices = await redisClient.get(cacheKey);
-        console.log(`Initial prices for ${pair}:`, prices);
-        if (prices) {
-          const message = JSON.stringify({
-            pair,
-            prices: JSON.parse(prices),
-          });
-          console.log(`Sending initial prices to client:`, message);
-          ws.send(message);
-        }
-      });
-
       ws.on("message", async (message: string) => {
         try {
           const data = JSON.parse(message);
@@ -277,21 +264,6 @@ async function startServer() {
           if (data.type === "volume_update") {
             await priceService.updateVolume(data.volume);
           }
-
-          // Handle pair updates
-          if (data.type === "pair_update" && data.pair) {
-            const cacheKey = `latest_prices_${data.pair.replace("/", "_")}`;
-            const prices = await redisClient.get(cacheKey);
-            console.log(`Prices for ${data.pair}:`, prices);
-            if (prices) {
-              const message = JSON.stringify({
-                pair: data.pair,
-                prices: JSON.parse(prices),
-              });
-              console.log(`Sending prices update to client:`, message);
-              ws.send(message);
-            }
-          }
         } catch (error) {
           console.error("Error processing WebSocket message:", error);
         }
@@ -299,31 +271,6 @@ async function startServer() {
 
       ws.on("close", () => {
         console.log("Client disconnected from WebSocket");
-      });
-    });
-
-    // Subscribe to Redis cache updates
-    const cacheKeys = SUPPORTED_PAIRS.map(
-      (pair) => `latest_prices_${pair.replace("/", "_")}`
-    );
-    await redisSub.subscribe(...cacheKeys);
-    console.log("Subscribed to Redis cache channels:", cacheKeys);
-
-    redisSub.on("message", (channel: string, message: string) => {
-      const pair = channel
-        .replace("latest_prices_", "")
-        .replace("_", "/") as TradingPair;
-      console.log(`Redis update for ${pair}:`, message);
-
-      wss.clients.forEach((client: WebSocket) => {
-        if (client.readyState === WebSocket.OPEN) {
-          const wsMessage = JSON.stringify({
-            pair,
-            prices: JSON.parse(message),
-          });
-          console.log(`Broadcasting to client:`, wsMessage);
-          client.send(wsMessage);
-        }
       });
     });
   } catch (error) {

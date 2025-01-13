@@ -5,6 +5,7 @@ import { BitOasisExchange } from "./exchanges/BitOasisExchange";
 import { RainExchange } from "./exchanges/RainExchange";
 import { MultibankExchange } from "./exchanges/MultibankExchange";
 import { BaseExchange, TradingPair } from "./exchanges/BaseExchange";
+import { WebSocketServer } from 'ws';
 
 export class PriceService {
   private redis: Redis;
@@ -13,6 +14,23 @@ export class PriceService {
   private exchanges: BaseExchange[] = [];
   private currentVolume: number = 0;
   private readonly PAIRS: TradingPair[] = ["BTC/AED"];
+  private wss: WebSocketServer | null = null;
+
+  setWebSocketServer(wss: WebSocketServer) {
+    this.wss = wss;
+  }
+
+  private publishPriceUpdate(prices: any) {
+    if (!this.wss) {
+      console.error("WebSocket server not set");
+      return;
+    }
+    this.wss.clients.forEach((client) => {
+      if (client.readyState === 1) {
+        client.send(JSON.stringify({ type: "priceUpdate", payload: prices }));
+      }
+    });
+  }
 
   constructor(redis: Redis) {
     this.redis = redis;
@@ -114,6 +132,9 @@ export class PriceService {
           const cacheKey = this.getCacheKey(pair);
           await this.redis.set(cacheKey, JSON.stringify(enrichedPrices));
           console.log(`Updated prices for ${pair} in Redis cache`);
+
+          // Publish price update
+          this.publishPriceUpdate(enrichedPrices);
         }
       }
     } catch (error) {
